@@ -22,6 +22,7 @@ class Product extends Model
         'gambar',
         'ukuran',
         'status',
+        'is_featured',
     ];
 
     protected $casts = [

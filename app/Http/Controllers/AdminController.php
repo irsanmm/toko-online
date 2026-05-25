@@ -107,8 +107,9 @@ class AdminController extends Controller
             'deskripsi' => $request->deskripsi,
             'harga'     => $request->harga,
             'stok'      => $request->stok,
-            'ukuran'    => $request->ukuran ?? [],
+            'ukuran'    => $request->ukuran ? explode(',', $request->ukuran) : [],
             'status'    => $request->status ?? 'aktif',
+            'is_featured' => $request->boolean('is_featured'),
         ]);
         return back()->with('success', 'Produk berhasil ditambahkan.');
     }
@@ -116,7 +117,12 @@ class AdminController extends Controller
     public function updateProduk(Request $request, $id)
     {
         if ($r = $this->checkAdmin()) return $r;
-        Product::findOrFail($id)->update($request->only(['nama','brand','deskripsi','harga','stok','ukuran','status']));
+        $data = $request->only(['nama','brand','deskripsi','harga','stok','status']);
+        if ($request->has('ukuran')) {
+            $data['ukuran'] = is_array($request->ukuran) ? $request->ukuran : explode(',', $request->ukuran);
+        }
+        $data['is_featured'] = $request->boolean('is_featured');
+        Product::findOrFail($id)->update($data);
         return back()->with('success', 'Produk berhasil diperbarui.');
     }
 

@@ -174,11 +174,13 @@ export default function ProductCard({ produk }) {
                     }}
                 >
                     <option value="">Pilih Ukuran</option>
-                    {produk.ukuran.map((uk) => (
-                        <option key={uk} value={uk}>
-                            EU {uk}
-                        </option>
-                    ))}
+                    {(Array.isArray(produk.ukuran) ? produk.ukuran : []).map(
+                        (uk) => (
+                            <option key={uk} value={uk}>
+                                EU {uk}
+                            </option>
+                        ),
+                    )}
                 </select>
 
                 {/* Qty Control */}

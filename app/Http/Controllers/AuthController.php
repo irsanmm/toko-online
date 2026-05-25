@@ -254,6 +254,23 @@ class AuthController extends Controller
         ];
     }
 
+    public function selesaiPesanan($nomorPesanan)
+    {
+        // Cari pesanan berdasarkan nomor pesanan dan user_id pembeli
+        $order = Order::where('nomor_pesanan', $nomorPesanan)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Validasi: Pembeli hanya bisa menyelesaikan pesanan jika statusnya sudah 'dikirim'
+        if ($order->status !== 'dikirim') {
+            return back()->withErrors(['message' => 'Hanya pesanan yang sedang dikirim yang dapat dikonfirmasi selesai.']);
+        }
+
+        $order->update(['status' => 'selesai']);
+
+        return back()->with('success', 'Pesanan telah diterima. Terima kasih!');
+    }
+
     public function profil()
     {
         if (!Auth::check()) return redirect()->route('pembeli.login');

@@ -31,18 +31,19 @@ Route::middleware('auth')->group(function () {
     Route::post('/checkout/process',    [ShopController::class, 'prosesCheckout'])->name('checkout.process');
     Route::get('/order-success',        [ShopController::class, 'orderSuccess'])->name('order.success');
     Route::get('/pembeli/pesanan',      [AuthController::class, 'pesanan'])->name('pembeli.pesanan');
+    Route::post('/pesanan/selesai/{nomorPesanan}', [AuthController::class, 'selesaiPesanan'])->name('pembeli.pesanan.selesai');
     Route::post('/pembeli/track-resi',  [AuthController::class, 'trackResi'])->name('pembeli.track.resi');
     Route::get('/pembeli/profil',       [AuthController::class, 'profil'])->name('pembeli.profil');
     Route::post('/pembeli/profil',      [AuthController::class, 'updateProfil'])->name('pembeli.profil.update');
 });
 
 // ===== ADMIN =====
-Route::get('/admin/login',  [AdminController::class, 'loginForm'])->name('admin.login');
-Route::post('/admin/login', [AdminController::class, 'login'])->name('admin.login.post');
-Route::get('/admin/logout', [AdminController::class, 'logout'])->name('admin.logout');
-Route::post('/admin/logout',[AdminController::class, 'logout']);
+    Route::get('/admin/login',  [AdminController::class, 'loginForm'])->name('admin.login');
+    Route::post('/admin/login', [AdminController::class, 'login'])->name('admin.login.post');
+    Route::get('/admin/logout', [AdminController::class, 'logout'])->name('admin.logout');
+    Route::post('/admin/logout',[AdminController::class, 'logout']);
 
-Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
     Route::get('/dashboard',             [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/produk',                [AdminController::class, 'produk'])->name('produk');
     Route::post('/produk',               [AdminController::class, 'storeProduk'])->name('produk.store');

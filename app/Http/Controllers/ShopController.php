@@ -17,7 +17,14 @@ class ShopController extends Controller
 {
     public function home()
     {
-        $featured = Product::aktif()->latest()->take(4)->get();
+        // Mengambil produk yang ditandai sebagai unggulan oleh admin
+        // Jika tidak ada yang ditandai, ambil 4 produk terbaru sebagai cadangan
+        $featured = Product::aktif()->where('is_featured', true)->latest()->get();
+        
+        if ($featured->isEmpty()) {
+            $featured = Product::aktif()->latest()->take(4)->get();
+        }
+
         return Inertia::render('Home', ['featured' => $featured]);
     }
 

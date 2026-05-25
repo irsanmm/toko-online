@@ -1,69 +1,6 @@
-import { Head } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import { useState, useRef } from "react";
 import AdminLayout from "./AdminLayout";
-
-const produkData = [
-    {
-        id: 1,
-        nama: "Vans Authentic Navy White",
-        brand: "VANS",
-        harga: 899000,
-        stok: 12,
-        terjual: 42,
-        status: "Aktif",
-        gambar: "/assets/img/vans3.webp",
-        ukuran: "38,39,40,41,42",
-        deskripsi: "Sepatu canvas klasik dengan sol karet vulkanisasi.",
-    },
-    {
-        id: 2,
-        nama: "Nike Air Max 270",
-        brand: "NIKE",
-        harga: 1450000,
-        stok: 8,
-        terjual: 38,
-        status: "Aktif",
-        gambar: "/assets/img/nike1.webp",
-        ukuran: "39,40,41,42,43",
-        deskripsi: "Unit Air terbesar di tumit untuk kenyamanan sepanjang hari.",
-    },
-    {
-        id: 3,
-        nama: "Adidas Ultraboost 22",
-        brand: "ADIDAS",
-        harga: 1750000,
-        stok: 3,
-        terjual: 31,
-        status: "Aktif",
-        gambar: "/assets/img/adidas1.webp",
-        ukuran: "40,41,42,43",
-        deskripsi: "Teknologi Boost untuk energi pengembalian maksimal.",
-    },
-    {
-        id: 4,
-        nama: "Converse Chuck Taylor",
-        brand: "CONVERSE",
-        harga: 750000,
-        stok: 20,
-        terjual: 27,
-        status: "Aktif",
-        gambar: "/assets/img/converse1.webp",
-        ukuran: "37,38,39,40,41,42",
-        deskripsi: "Ikon abadi yang cocok untuk semua gaya kasual.",
-    },
-    {
-        id: 5,
-        nama: "Vans Old Skool Black",
-        brand: "VANS",
-        harga: 950000,
-        stok: 0,
-        terjual: 18,
-        status: "Nonaktif",
-        gambar: "/assets/img/vans3.webp",
-        ukuran: "38,39,40,41",
-        deskripsi: "Desain skate klasik dengan stripe ikonik di samping.",
-    },
-];
 
 const BRANDS = ["Semua", "VANS", "NIKE", "ADIDAS", "CONVERSE"];
 const fmtHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
@@ -73,9 +10,10 @@ const emptyForm = {
     brand: "VANS",
     harga: "",
     stok: "",
-    status: "Aktif",
+    status: "aktif",
     ukuran: "",
     deskripsi: "",
+    is_featured: false,
 };
 
 /* ── Komponen thumbnail tabel ── */
@@ -102,7 +40,11 @@ function ThumbnailProduk({ gambar, nama }) {
                 <img
                     src={gambar}
                     alt={nama}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                    }}
                     onError={() => setImgError(true)}
                 />
             ) : (
@@ -112,8 +54,7 @@ function ThumbnailProduk({ gambar, nama }) {
     );
 }
 
-export default function ProdukAdmin({ admin }) {
-    const [produk, setProduk] = useState(produkData);
+export default function ProdukAdmin({ admin, products: produk }) {
     const [search, setSearch] = useState("");
     const [filterBrand, setFilterBrand] = useState("Semua");
     const [showModal, setShowModal] = useState(false);
@@ -146,8 +87,11 @@ export default function ProdukAdmin({ admin }) {
             harga: p.harga,
             stok: p.stok,
             status: p.status,
-            ukuran: p.ukuran || "",
+            ukuran: Array.isArray(p.ukuran)
+                ? p.ukuran.join(",")
+                : p.ukuran || "",
             deskripsi: p.deskripsi || "",
+            is_featured: !!p.is_featured,
         });
         setFotoFile(null);
         // Selalu isi fotoPreview dari gambar yang sudah ada
@@ -170,36 +114,24 @@ export default function ProdukAdmin({ admin }) {
             return;
         }
 
-        // Gunakan fotoPreview (bisa base64 baru atau path lama)
-        // Kalau edit dan tidak ganti foto, fotoPreview sudah berisi p.gambar dari openEdit
-        const gambarFinal = fotoPreview || (editData ? editData.gambar : "");
-
-        const data = {
-            ...form,
-            harga: Number(form.harga),
-            stok: Number(form.stok),
-            gambar: gambarFinal,
-        };
-
         if (editData) {
-            setProduk((prev) =>
-                prev.map((p) =>
-                    p.id === editData.id ? { ...p, ...data } : p
-                )
-            );
+            router.put(`/admin/produk/${editData.id}`, form, {
+                onSuccess: () => setShowModal(false),
+            });
         } else {
-            const newId = Math.max(...produk.map((p) => p.id)) + 1;
-            setProduk((prev) => [
-                ...prev,
-                { id: newId, ...data, terjual: 0 },
-            ]);
+            router.post("/admin/produk", form, {
+                onSuccess: () => {
+                    setShowModal(false);
+                    setForm(emptyForm);
+                },
+            });
         }
-        setShowModal(false);
     };
 
     const handleDelete = (id) => {
-        setProduk((prev) => prev.filter((p) => p.id !== id));
-        setShowDelete(null);
+        router.delete(`/admin/produk/${id}`, {
+            onSuccess: () => setShowDelete(null),
+        });
     };
 
     const modalOverlay = {
@@ -252,7 +184,13 @@ export default function ProdukAdmin({ admin }) {
                     <h1 style={{ fontSize: "1.1rem", fontWeight: 800 }}>
                         Manajemen Produk
                     </h1>
-                    <p style={{ fontSize: ".75rem", color: "#888", marginTop: 2 }}>
+                    <p
+                        style={{
+                            fontSize: ".75rem",
+                            color: "#888",
+                            marginTop: 2,
+                        }}
+                    >
                         {produk.length} produk terdaftar
                     </p>
                 </div>
@@ -272,9 +210,20 @@ export default function ProdukAdmin({ admin }) {
             >
                 {[
                     { label: "Total Produk", value: produk.length },
-                    { label: "Produk Aktif", value: produk.filter((p) => p.status === "Aktif").length },
-                    { label: "Stok Menipis", value: produk.filter((p) => p.stok > 0 && p.stok < 8).length },
-                    { label: "Stok Habis", value: produk.filter((p) => p.stok === 0).length },
+                    {
+                        label: "Produk Aktif",
+                        value: produk.filter((p) => p.status === "aktif")
+                            .length,
+                    },
+                    {
+                        label: "Stok Menipis",
+                        value: produk.filter((p) => p.stok > 0 && p.stok < 8)
+                            .length,
+                    },
+                    {
+                        label: "Stok Habis",
+                        value: produk.filter((p) => p.stok === 0).length,
+                    },
                 ].map((s, i) => (
                     <div
                         key={i}
@@ -285,10 +234,22 @@ export default function ProdukAdmin({ admin }) {
                             padding: ".9rem 1rem",
                         }}
                     >
-                        <div style={{ fontSize: ".7rem", color: "#888", marginBottom: ".2rem" }}>
+                        <div
+                            style={{
+                                fontSize: ".7rem",
+                                color: "#888",
+                                marginBottom: ".2rem",
+                            }}
+                        >
                             {s.label}
                         </div>
-                        <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#111" }}>
+                        <div
+                            style={{
+                                fontSize: "1.4rem",
+                                fontWeight: 800,
+                                color: "#111",
+                            }}
+                        >
                             {s.value}
                         </div>
                     </div>
@@ -305,7 +266,13 @@ export default function ProdukAdmin({ admin }) {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
-                    <div style={{ display: "flex", gap: ".35rem", flexWrap: "wrap" }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: ".35rem",
+                            flexWrap: "wrap",
+                        }}
+                    >
                         {BRANDS.map((b) => (
                             <button
                                 key={b}
@@ -317,8 +284,12 @@ export default function ProdukAdmin({ admin }) {
                                     fontWeight: 700,
                                     cursor: "pointer",
                                     border: "1.5px solid",
-                                    borderColor: filterBrand === b ? "#3b82f6" : "#e5e7eb",
-                                    background: filterBrand === b ? "#3b82f6" : "#fff",
+                                    borderColor:
+                                        filterBrand === b
+                                            ? "#3b82f6"
+                                            : "#e5e7eb",
+                                    background:
+                                        filterBrand === b ? "#3b82f6" : "#fff",
                                     color: filterBrand === b ? "#fff" : "#555",
                                 }}
                             >
@@ -332,7 +303,16 @@ export default function ProdukAdmin({ admin }) {
                     <table>
                         <thead>
                             <tr>
-                                {["#", "Produk", "Brand", "Harga", "Stok", "Terjual", "Status", "Aksi"].map((h) => (
+                                {[
+                                    "#",
+                                    "Produk",
+                                    "Brand",
+                                    "Harga",
+                                    "Stok",
+                                    "Terjual",
+                                    "Status",
+                                    "Aksi",
+                                ].map((h) => (
                                     <th key={h}>{h}</th>
                                 ))}
                             </tr>
@@ -340,20 +320,51 @@ export default function ProdukAdmin({ admin }) {
                         <tbody>
                             {filtered.map((p, i) => (
                                 <tr key={p.id}>
-                                    <td style={{ color: "#aaa", fontSize: ".7rem" }}>{i + 1}</td>
+                                    <td
+                                        style={{
+                                            color: "#aaa",
+                                            fontSize: ".7rem",
+                                        }}
+                                    >
+                                        {i + 1}
+                                    </td>
                                     <td>
-                                        <div style={{ display: "flex", alignItems: "center", gap: ".65rem" }}>
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: ".65rem",
+                                            }}
+                                        >
                                             {/* ── FIX: pakai komponen ThumbnailProduk ── */}
-                                            <ThumbnailProduk gambar={p.gambar} nama={p.nama} />
-                                            <div style={{ fontWeight: 600, fontSize: ".8rem" }}>{p.nama}</div>
+                                            <ThumbnailProduk
+                                                gambar={p.gambar}
+                                                nama={p.nama}
+                                            />
+                                            <div
+                                                style={{
+                                                    fontWeight: 600,
+                                                    fontSize: ".8rem",
+                                                }}
+                                            >
+                                                {p.nama}
+                                            </div>
                                         </div>
                                     </td>
                                     <td>
-                                        <span style={{ fontSize: ".68rem", fontWeight: 700, color: "#f59e0b" }}>
+                                        <span
+                                            style={{
+                                                fontSize: ".68rem",
+                                                fontWeight: 700,
+                                                color: "#f59e0b",
+                                            }}
+                                        >
                                             {p.brand}
                                         </span>
                                     </td>
-                                    <td style={{ fontWeight: 700 }}>{fmtHarga(p.harga)}</td>
+                                    <td style={{ fontWeight: 700 }}>
+                                        {fmtHarga(p.harga)}
+                                    </td>
                                     <td>
                                         <span
                                             style={{
@@ -362,8 +373,8 @@ export default function ProdukAdmin({ admin }) {
                                                     p.stok === 0
                                                         ? "#ef4444"
                                                         : p.stok < 8
-                                                        ? "#f59e0b"
-                                                        : "#22c55e",
+                                                          ? "#f59e0b"
+                                                          : "#22c55e",
                                             }}
                                         >
                                             {p.stok} pcs
@@ -374,15 +385,37 @@ export default function ProdukAdmin({ admin }) {
                                         <span
                                             className="badge"
                                             style={{
-                                                background: p.status === "Aktif" ? "#dcfce7" : "#f3f4f6",
-                                                color: p.status === "Aktif" ? "#166534" : "#888",
+                                                background:
+                                                    p.status === "aktif"
+                                                        ? "#dcfce7"
+                                                        : "#f3f4f6",
+                                                color:
+                                                    p.status === "aktif"
+                                                        ? "#166534"
+                                                        : "#888",
                                             }}
                                         >
                                             {p.status}
                                         </span>
+                                        {p.is_featured && (
+                                            <div
+                                                style={{
+                                                    fontSize: "10px",
+                                                    color: "#f59e0b",
+                                                    fontWeight: 800,
+                                                }}
+                                            >
+                                                ⭐ Featured
+                                            </div>
+                                        )}
                                     </td>
                                     <td>
-                                        <div style={{ display: "flex", gap: ".3rem" }}>
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                gap: ".3rem",
+                                            }}
+                                        >
                                             <button
                                                 className="btn btn-warning btn-sm"
                                                 onClick={() => openEdit(p)}
@@ -460,9 +493,31 @@ export default function ProdukAdmin({ admin }) {
                             <input
                                 style={inputStyle}
                                 value={form.nama}
-                                onChange={(e) => setForm({ ...form, nama: e.target.value })}
+                                onChange={(e) =>
+                                    setForm({ ...form, nama: e.target.value })
+                                }
                                 placeholder="Contoh : Adidas Spezial Black White"
                             />
+                        </div>
+
+                        {/* Brand Produk */}
+                        <div style={{ marginBottom: "1rem" }}>
+                            <label style={labelStyle}>Brand Produk</label>
+                            <select
+                                style={inputStyle}
+                                value={form.brand}
+                                onChange={(e) =>
+                                    setForm({ ...form, brand: e.target.value })
+                                }
+                            >
+                                {BRANDS.filter((b) => b !== "Semua").map(
+                                    (b) => (
+                                        <option key={b} value={b}>
+                                            {b}
+                                        </option>
+                                    ),
+                                )}
+                            </select>
                         </div>
 
                         {/* Harga & Stok */}
@@ -480,7 +535,12 @@ export default function ProdukAdmin({ admin }) {
                                     style={inputStyle}
                                     type="number"
                                     value={form.harga}
-                                    onChange={(e) => setForm({ ...form, harga: e.target.value })}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            harga: e.target.value,
+                                        })
+                                    }
                                     placeholder="1000000"
                                 />
                             </div>
@@ -490,7 +550,12 @@ export default function ProdukAdmin({ admin }) {
                                     style={inputStyle}
                                     type="number"
                                     value={form.stok}
-                                    onChange={(e) => setForm({ ...form, stok: e.target.value })}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            stok: e.target.value,
+                                        })
+                                    }
                                     placeholder="10"
                                 />
                             </div>
@@ -502,7 +567,9 @@ export default function ProdukAdmin({ admin }) {
                             <input
                                 style={inputStyle}
                                 value={form.ukuran}
-                                onChange={(e) => setForm({ ...form, ukuran: e.target.value })}
+                                onChange={(e) =>
+                                    setForm({ ...form, ukuran: e.target.value })
+                                }
                                 placeholder="Contoh : 38,39,40,41,42"
                             />
                         </div>
@@ -518,9 +585,51 @@ export default function ProdukAdmin({ admin }) {
                                     fontFamily: "inherit",
                                 }}
                                 value={form.deskripsi}
-                                onChange={(e) => setForm({ ...form, deskripsi: e.target.value })}
+                                onChange={(e) =>
+                                    setForm({
+                                        ...form,
+                                        deskripsi: e.target.value,
+                                    })
+                                }
                                 placeholder="Jelaskan Keunggulan Produk ini..."
                             />
+                        </div>
+
+                        {/* Checkbox Featured */}
+                        <div
+                            style={{
+                                marginBottom: "1rem",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: ".5rem",
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                id="is_featured"
+                                checked={form.is_featured}
+                                onChange={(e) =>
+                                    setForm({
+                                        ...form,
+                                        is_featured: e.target.checked,
+                                    })
+                                }
+                                style={{
+                                    width: "18px",
+                                    height: "18px",
+                                    cursor: "pointer",
+                                }}
+                            />
+                            <label
+                                htmlFor="is_featured"
+                                style={{
+                                    ...labelStyle,
+                                    marginBottom: 0,
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Tampilkan di Halaman Utama (Featured)
+                            </label>
                         </div>
 
                         {/* Foto Produk */}
@@ -539,7 +648,9 @@ export default function ProdukAdmin({ admin }) {
                             >
                                 <button
                                     type="button"
-                                    onClick={() => fileInputRef.current?.click()}
+                                    onClick={() =>
+                                        fileInputRef.current?.click()
+                                    }
                                     style={{
                                         background: "#f3f4f6",
                                         border: "1px solid #d1d5db",
@@ -570,13 +681,20 @@ export default function ProdukAdmin({ admin }) {
                                         whiteSpace: "nowrap",
                                     }}
                                 >
-                                    {fotoFile ? fotoFile.name : "Tidak Ada File yang dipilih"}
+                                    {fotoFile
+                                        ? fotoFile.name
+                                        : "Tidak Ada File yang dipilih"}
                                 </span>
                             </div>
 
                             {/* Preview gambar — muncul untuk foto baru (base64) maupun lama (path) */}
                             {fotoPreview && (
-                                <div style={{ marginTop: ".6rem", position: "relative" }}>
+                                <div
+                                    style={{
+                                        marginTop: ".6rem",
+                                        position: "relative",
+                                    }}
+                                >
                                     <img
                                         src={fotoPreview}
                                         alt="Preview"
@@ -588,14 +706,17 @@ export default function ProdukAdmin({ admin }) {
                                             border: "1px solid #e5e7eb",
                                             display: "block",
                                         }}
-                                        onError={(e) => { e.target.style.display = "none"; }}
+                                        onError={(e) => {
+                                            e.target.style.display = "none";
+                                        }}
                                     />
                                     <button
                                         type="button"
                                         onClick={() => {
                                             setFotoFile(null);
                                             setFotoPreview("");
-                                            if (fileInputRef.current) fileInputRef.current.value = "";
+                                            if (fileInputRef.current)
+                                                fileInputRef.current.value = "";
                                         }}
                                         style={{
                                             position: "absolute",
@@ -637,7 +758,9 @@ export default function ProdukAdmin({ admin }) {
                                 letterSpacing: ".02em",
                             }}
                         >
-                            {editData ? "Simpan Perubahan" : "Publikasikan Produk"}
+                            {editData
+                                ? "Simpan Perubahan"
+                                : "Publikasikan Produk"}
                         </button>
 
                         {/* Kembali */}
@@ -679,13 +802,38 @@ export default function ProdukAdmin({ admin }) {
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div style={{ fontSize: "2.5rem", marginBottom: ".75rem" }}>🗑️</div>
-                        <h2 style={{ fontWeight: 800, marginBottom: ".5rem" }}>Hapus Produk?</h2>
-                        <p style={{ fontSize: ".85rem", color: "#888", marginBottom: "1.5rem" }}>
-                            Produk <strong>{showDelete.nama}</strong> akan dihapus permanen.
+                        <div
+                            style={{
+                                fontSize: "2.5rem",
+                                marginBottom: ".75rem",
+                            }}
+                        >
+                            🗑️
+                        </div>
+                        <h2 style={{ fontWeight: 800, marginBottom: ".5rem" }}>
+                            Hapus Produk?
+                        </h2>
+                        <p
+                            style={{
+                                fontSize: ".85rem",
+                                color: "#888",
+                                marginBottom: "1.5rem",
+                            }}
+                        >
+                            Produk <strong>{showDelete.nama}</strong> akan
+                            dihapus permanen.
                         </p>
-                        <div style={{ display: "flex", gap: ".6rem", justifyContent: "center" }}>
-                            <button className="btn btn-outline" onClick={() => setShowDelete(null)}>
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: ".6rem",
+                                justifyContent: "center",
+                            }}
+                        >
+                            <button
+                                className="btn btn-outline"
+                                onClick={() => setShowDelete(null)}
+                            >
                                 Batal
                             </button>
                             <button

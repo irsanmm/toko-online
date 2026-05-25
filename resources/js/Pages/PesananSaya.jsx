@@ -1,7 +1,8 @@
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, router } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 import Layout from "./Layout";
 import TrackingResi from "./TrackingResi";
+import Swal from "sweetalert2";
 
 export default function PesananSaya({
     pesanan: initialPesanan,
@@ -14,31 +15,41 @@ export default function PesananSaya({
     // ── Notifikasi: pakai localStorage ──────────────────────────────
     const NOTIF_KEY = "amengstore_notifikasi";
 
-    const loadNotif = () => {
-        // Cek apakah user sudah pernah hapus semua (flag)
-        const cleared = localStorage.getItem(NOTIF_KEY + "_cleared");
-        if (cleared === "true") return [];
-        // Ambil yang sudah di-dismiss satu-satu
-        const dismissed = JSON.parse(
-            localStorage.getItem(NOTIF_KEY + "_dismissed") || "[]",
-        );
-        return (initialNotifikasi || []).filter(
-            (_, i) => !dismissed.includes(i),
-        );
-    };
-
-    const [notifikasi, setNotifikasi] = useState(loadNotif);
+    const [notifikasi, setNotifikasi] = useState([]);
 
     // ── Pesanan: pakai localStorage ──────────────────────────────────
     const PESANAN_KEY = "amengstore_pesanan_deleted";
 
-    const loadPesanan = () => {
-        const deleted = JSON.parse(localStorage.getItem(PESANAN_KEY) || "[]");
-        return (initialPesanan || []).filter((p) => !deleted.includes(p.id));
-    };
-
-    const [pesanan, setPesanan] = useState(loadPesanan);
+    const [pesanan, setPesanan] = useState([]);
     const [showDeletePesanan, setShowDeletePesanan] = useState(null);
+
+    // Sinkronisasi data saat pertama kali load dan saat props berubah
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            // Load Pesanan
+            const deleted = JSON.parse(
+                localStorage.getItem(PESANAN_KEY) || "[]",
+            );
+            setPesanan(
+                (initialPesanan || []).filter((p) => !deleted.includes(p.id)),
+            );
+
+            // Load Notif
+            const cleared = localStorage.getItem(NOTIF_KEY + "_cleared");
+            if (cleared === "true") {
+                setNotifikasi([]);
+            } else {
+                const dismissed = JSON.parse(
+                    localStorage.getItem(NOTIF_KEY + "_dismissed") || "[]",
+                );
+                setNotifikasi(
+                    (initialNotifikasi || []).filter(
+                        (_, i) => !dismissed.includes(i),
+                    ),
+                );
+            }
+        }
+    }, [initialPesanan, initialNotifikasi]);
 
     const tabs = ["Semua", "Diproses", "Dikirim", "Selesai", "Batal"];
     const fmtHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
@@ -91,6 +102,39 @@ export default function PesananSaya({
         }
         setPesanan((prev) => prev.filter((p) => p.id !== id));
         setShowDeletePesanan(null);
+    };
+
+    // ── Selesaikan Pesanan (Kirim ke Laravel via Inertia) ──────────────────
+    const handlePesananSelesai = (id) => {
+        Swal.fire({
+            title: "Konfirmasi Pesanan",
+            text: "Apakah Anda yakin telah menerima pesanan ini? Status akan berubah menjadi Selesai.",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#22c55e",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Ya, Diterima!",
+            cancelButtonText: "Batal",
+            borderRadius: 14,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // 1. Update state di frontend secara instan (Optimistic Update)
+                setPesanan((prev) =>
+                    prev.map((p) =>
+                        p.id === id ? { ...p, status: "Selesai" } : p,
+                    ),
+                );
+
+                // 2. Kirim data ke backend Laravel
+                router.post(
+                    `/pesanan/selesai/${encodeURIComponent(id)}`,
+                    {},
+                    {
+                        preserveScroll: true,
+                    },
+                );
+            }
+        });
     };
 
     const modalStyle = {
@@ -563,6 +607,9 @@ export default function PesananSaya({
                                         )}
                                         {p.status === "Dikirim" && (
                                             <button
+                                                onClick={() =>
+                                                    handlePesananSelesai(p.id)
+                                                }
                                                 style={{
                                                     padding: ".45rem 1rem",
                                                     borderRadius: 8,
