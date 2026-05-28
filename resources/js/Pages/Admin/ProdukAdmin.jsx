@@ -1,5 +1,5 @@
-import { Head, router } from "@inertiajs/react";
-import { useState, useRef } from "react";
+import { Head, useForm, router } from "@inertiajs/react";
+import { useState, useRef, useEffect } from "react";
 import AdminLayout from "./AdminLayout";
 
 const BRANDS = ["Semua", "VANS", "NIKE", "ADIDAS", "CONVERSE"];
@@ -14,6 +14,7 @@ const emptyForm = {
     ukuran: "",
     deskripsi: "",
     is_featured: false,
+    gambar: null, // Add gambar to emptyForm for file handling
 };
 
 /* ── Komponen thumbnail tabel ── */
@@ -60,10 +61,31 @@ export default function ProdukAdmin({ admin, products: produk }) {
     const [showModal, setShowModal] = useState(false);
     const [editData, setEditData] = useState(null);
     const [showDelete, setShowDelete] = useState(null);
-    const [form, setForm] = useState(emptyForm);
-    const [fotoFile, setFotoFile] = useState(null);
     const [fotoPreview, setFotoPreview] = useState("");
     const fileInputRef = useRef(null);
+
+    const {
+        data: form,
+        setData: setForm,
+        post,
+        put,
+        processing,
+        errors,
+        reset,
+    } = useForm(emptyForm);
+
+    // Effect to update fotoPreview when form.gambar changes (for existing images)
+    useEffect(() => {
+        if (form.gambar && typeof form.gambar === "string") {
+            setFotoPreview(form.gambar);
+        } else if (form.gambar instanceof File) {
+            const reader = new FileReader();
+            reader.onload = (ev) => setFotoPreview(ev.target.result);
+            reader.readAsDataURL(form.gambar);
+        } else {
+            setFotoPreview("");
+        }
+    }, [form.gambar]);
 
     const filtered = produk.filter((p) => {
         const matchSearch = p.nama.toLowerCase().includes(search.toLowerCase());
@@ -73,8 +95,7 @@ export default function ProdukAdmin({ admin, products: produk }) {
 
     const openAdd = () => {
         setEditData(null);
-        setForm(emptyForm);
-        setFotoFile(null);
+        reset(emptyForm); // Use reset from useForm
         setFotoPreview("");
         setShowModal(true);
     };
@@ -92,38 +113,57 @@ export default function ProdukAdmin({ admin, products: produk }) {
                 : p.ukuran || "",
             deskripsi: p.deskripsi || "",
             is_featured: !!p.is_featured,
+            gambar: p.gambar, // Set existing image path
         });
-        setFotoFile(null);
-        // Selalu isi fotoPreview dari gambar yang sudah ada
-        setFotoPreview(p.gambar || "");
         setShowModal(true);
     };
 
     const handleFotoChange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        setFotoFile(file);
-        const reader = new FileReader();
-        reader.onload = (ev) => setFotoPreview(ev.target.result);
-        reader.readAsDataURL(file);
+        setForm("gambar", file); // Set the File object directly to form.gambar
     };
 
     const handleSave = () => {
-        if (!form.nama || !form.harga || !form.stok) {
+        if (form.nama.trim() === "" || form.harga === "" || form.stok === "") {
             alert("Isi semua field yang wajib diisi!");
             return;
         }
 
         if (editData) {
-            router.put(`/admin/produk/${editData.id}`, form, {
-                onSuccess: () => setShowModal(false),
-            });
-        } else {
-            router.post("/admin/produk", form, {
+            // Untuk edit: gunakan router.post dengan _method spoofing
+            // JANGAN pakai transform, langsung bangun FormData manual
+            const fd = new FormData();
+            fd.append("_method", "PUT");
+            fd.append("nama", form.nama);
+            fd.append("brand", form.brand);
+            fd.append("harga", form.harga);
+            fd.append("stok", form.stok);
+            fd.append("status", form.status);
+            fd.append("ukuran", form.ukuran);
+            fd.append("deskripsi", form.deskripsi);
+            fd.append("is_featured", form.is_featured ? "1" : "0");
+            if (form.gambar instanceof File) {
+                fd.append("gambar", form.gambar);
+            }
+
+            router.post(`/admin/produk/${editData.id}`, fd, {
                 onSuccess: () => {
                     setShowModal(false);
-                    setForm(emptyForm);
+                    reset(emptyForm);
+                    setFotoPreview("");
                 },
+                onError: (err) => console.error("Update Error:", err),
+            });
+        } else {
+            post("/admin/produk", {
+                forceFormData: true,
+                onSuccess: () => {
+                    setShowModal(false);
+                    reset(emptyForm);
+                    setFotoPreview("");
+                },
+                onError: (err) => console.error("Error adding product:", err),
             });
         }
     };
@@ -264,7 +304,7 @@ export default function ProdukAdmin({ admin, products: produk }) {
                         style={{ maxWidth: 220, padding: ".45rem .85rem" }}
                         placeholder="🔍 Cari produk..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => setForm("nama", e.target.value)}
                     />
                     <div
                         style={{
@@ -498,6 +538,17 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                 }
                                 placeholder="Contoh : Adidas Spezial Black White"
                             />
+                            {errors.nama && (
+                                <div
+                                    style={{
+                                        color: "red",
+                                        fontSize: ".7rem",
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    {errors.nama}
+                                </div>
+                            )}
                         </div>
 
                         {/* Brand Produk */}
@@ -543,6 +594,17 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                     }
                                     placeholder="1000000"
                                 />
+                                {errors.harga && (
+                                    <div
+                                        style={{
+                                            color: "red",
+                                            fontSize: ".7rem",
+                                            marginTop: 4,
+                                        }}
+                                    >
+                                        {errors.harga}
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label style={labelStyle}>Stok</label>
@@ -558,6 +620,17 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                     }
                                     placeholder="10"
                                 />
+                                {errors.stok && (
+                                    <div
+                                        style={{
+                                            color: "red",
+                                            fontSize: ".7rem",
+                                            marginTop: 4,
+                                        }}
+                                    >
+                                        {errors.stok}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -681,11 +754,22 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                         whiteSpace: "nowrap",
                                     }}
                                 >
-                                    {fotoFile
-                                        ? fotoFile.name
+                                    {form.gambar instanceof File
+                                        ? form.gambar.name
                                         : "Tidak Ada File yang dipilih"}
                                 </span>
                             </div>
+                            {errors.gambar && (
+                                <div
+                                    style={{
+                                        color: "red",
+                                        fontSize: ".7rem",
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    {errors.gambar}
+                                </div>
+                            )}
 
                             {/* Preview gambar — muncul untuk foto baru (base64) maupun lama (path) */}
                             {fotoPreview && (
@@ -713,8 +797,7 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setFotoFile(null);
-                                            setFotoPreview("");
+                                            setForm("gambar", null); // Clear the file from form data
                                             if (fileInputRef.current)
                                                 fileInputRef.current.value = "";
                                         }}
@@ -744,6 +827,7 @@ export default function ProdukAdmin({ admin, products: produk }) {
                         {/* Tombol Simpan */}
                         <button
                             type="button"
+                            disabled={processing}
                             onClick={handleSave}
                             style={{
                                 width: "100%",
@@ -758,9 +842,11 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                 letterSpacing: ".02em",
                             }}
                         >
-                            {editData
-                                ? "Simpan Perubahan"
-                                : "Publikasikan Produk"}
+                            {processing
+                                ? "Menyimpan..."
+                                : editData
+                                  ? "Simpan Perubahan"
+                                  : "Publikasikan Produk"}
                         </button>
 
                         {/* Kembali */}

@@ -100,14 +100,27 @@ class AdminController extends Controller
     public function storeProduk(Request $request)
     {
         if ($r = $this->checkAdmin()) return $r;
-        $request->validate(['nama'=>'required','brand'=>'required','harga'=>'required|numeric','stok'=>'required|integer']);
+        $request->validate([
+            'nama'=>'required',
+            'brand'=>'required',
+            'harga'=>'required|numeric',
+            'stok'=>'required|integer',
+            'gambar' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Add validation for image
+        ]);
+
+        $gambarPath = null;
+        if ($request->hasFile('gambar')) {
+            $gambarPath = $request->file('gambar')->store('products', 'public'); // Store in public/assets/img/products
+        }
+
         Product::create([
             'nama'      => $request->nama,
             'brand'     => strtoupper($request->brand),
             'deskripsi' => $request->deskripsi,
             'harga'     => $request->harga,
             'stok'      => $request->stok,
-            'ukuran'    => $request->ukuran ? explode(',', $request->ukuran) : [],
+            'gambar'    => $gambarPath ? '/storage/' . $gambarPath : null,
+            'ukuran'    => $request->ukuran ? explode(',', $request->ukuran) : [], // Ensure ukuran is handled
             'status'    => $request->status ?? 'aktif',
             'is_featured' => $request->boolean('is_featured'),
         ]);
@@ -117,12 +130,44 @@ class AdminController extends Controller
     public function updateProduk(Request $request, $id)
     {
         if ($r = $this->checkAdmin()) return $r;
-        $data = $request->only(['nama','brand','deskripsi','harga','stok','status']);
+        $request->validate([
+            'nama'   => 'required',
+            'brand'  => 'required',
+            'harga'  => 'required|numeric',
+            'stok'   => 'required|integer',
+            'gambar' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ]);
+
+        $product = Product::findOrFail($id);
+        $data = $request->only(['nama','brand','deskripsi','harga','stok']);
+        $data['status'] = $request->input('status', 'aktif'); // fallback default
+
         if ($request->has('ukuran')) {
             $data['ukuran'] = is_array($request->ukuran) ? $request->ukuran : explode(',', $request->ukuran);
         }
         $data['is_featured'] = $request->boolean('is_featured');
-        Product::findOrFail($id)->update($data);
+
+        // Handle image upload
+        if ($request->hasFile('gambar')) {
+            // Delete old image if exists
+            if ($product->gambar) {
+                $oldPath = str_replace('/storage/', '', $product->gambar);
+                if (\Storage::disk('public')->exists($oldPath)) {
+                    \Storage::disk('public')->delete($oldPath);
+                }
+            }
+            $gambarPath = $request->file('gambar')->store('products', 'public');
+            $data['gambar'] = '/storage/' . $gambarPath;
+        } elseif ($request->input('gambar') === null && $product->gambar) {
+            // If gambar is explicitly set to null (e.g., user removed it) and an old image exists
+            $oldPath = str_replace('/storage/', '', $product->gambar);
+            if (\Storage::disk('public')->exists($oldPath)) {
+                \Storage::disk('public')->delete($oldPath);
+            }
+            $data['gambar'] = null;
+        }
+
+        $product->update($data);
         return back()->with('success', 'Produk berhasil diperbarui.');
     }
 
