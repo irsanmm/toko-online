@@ -1,93 +1,29 @@
-import { Head, useForm, router } from "@inertiajs/react";
-import { useState, useRef, useEffect } from "react";
+import { Head, router, useForm } from "@inertiajs/react";
+import { useState } from "react";
 import AdminLayout from "./AdminLayout";
 
-const BRANDS = ["Semua", "VANS", "NIKE", "ADIDAS", "CONVERSE"];
-const fmtHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
-
-const emptyForm = {
-    nama: "",
-    brand: "VANS",
-    harga: "",
-    stok: "",
-    status: "aktif",
-    ukuran: "",
-    deskripsi: "",
-    is_featured: false,
-    gambar: null, // Add gambar to emptyForm for file handling
-};
-
-/* ── Komponen thumbnail tabel ── */
-function ThumbnailProduk({ gambar, nama }) {
-    const [imgError, setImgError] = useState(false);
-
-    return (
-        <div
-            style={{
-                width: 38,
-                height: 38,
-                borderRadius: 7,
-                background: "#f9fafb",
-                border: "1px solid #f0f0f0",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1.25rem",
-                flexShrink: 0,
-                overflow: "hidden",
-            }}
-        >
-            {gambar && !imgError ? (
-                <img
-                    src={gambar}
-                    alt={nama}
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                    }}
-                    onError={() => setImgError(true)}
-                />
-            ) : (
-                "👟"
-            )}
-        </div>
-    );
-}
-
-export default function ProdukAdmin({ admin, products: produk }) {
+export default function ProdukAdmin({ admin, products }) {
     const [search, setSearch] = useState("");
     const [filterBrand, setFilterBrand] = useState("Semua");
     const [showModal, setShowModal] = useState(false);
     const [editData, setEditData] = useState(null);
     const [showDelete, setShowDelete] = useState(null);
-    const [fotoPreview, setFotoPreview] = useState("");
-    const fileInputRef = useRef(null);
 
-    const {
-        data: form,
-        setData: setForm,
-        post,
-        put,
-        processing,
-        errors,
-        reset,
-    } = useForm(emptyForm);
+    const { data, setData, post, put, processing, errors, reset } = useForm({
+        nama: "",
+        brand: "VANS",
+        deskripsi: "",
+        harga: "",
+        stok: "",
+        ukuran: [],
+        status: "aktif",
+        gambar: "",
+    });
 
-    // Effect to update fotoPreview when form.gambar changes (for existing images)
-    useEffect(() => {
-        if (form.gambar && typeof form.gambar === "string") {
-            setFotoPreview(form.gambar);
-        } else if (form.gambar instanceof File) {
-            const reader = new FileReader();
-            reader.onload = (ev) => setFotoPreview(ev.target.result);
-            reader.readAsDataURL(form.gambar);
-        } else {
-            setFotoPreview("");
-        }
-    }, [form.gambar]);
+    const brands = ["Semua", "VANS", "NIKE", "ADIDAS", "CONVERSE"];
+    const fmtHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
 
-    const filtered = produk.filter((p) => {
+    const filtered = (products || []).filter((p) => {
         const matchSearch = p.nama.toLowerCase().includes(search.toLowerCase());
         const matchBrand = filterBrand === "Semua" || p.brand === filterBrand;
         return matchSearch && matchBrand;
@@ -95,89 +31,67 @@ export default function ProdukAdmin({ admin, products: produk }) {
 
     const openAdd = () => {
         setEditData(null);
-        reset(emptyForm); // Use reset from useForm
-        setFotoPreview("");
+        reset();
         setShowModal(true);
     };
 
     const openEdit = (p) => {
         setEditData(p);
-        setForm({
+        setData({
             nama: p.nama,
             brand: p.brand,
+            deskripsi: p.deskripsi || "",
             harga: p.harga,
             stok: p.stok,
+            ukuran: Array.isArray(p.ukuran) ? p.ukuran : [],
             status: p.status,
-            ukuran: Array.isArray(p.ukuran)
-                ? p.ukuran.join(",")
-                : p.ukuran || "",
-            deskripsi: p.deskripsi || "",
-            is_featured: !!p.is_featured,
-            gambar: p.gambar, // Set existing image path
+            gambar: p.gambar || "",
         });
         setShowModal(true);
     };
 
-    const handleFotoChange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setForm("gambar", file); // Set the File object directly to form.gambar
-    };
-
-    const handleSave = () => {
-        if (form.nama.trim() === "" || form.harga === "" || form.stok === "") {
-            alert("Isi semua field yang wajib diisi!");
-            return;
-        }
-
+    const handleSave = (e) => {
+        e.preventDefault();
         if (editData) {
-            // Untuk edit: gunakan router.post dengan _method spoofing
-            // JANGAN pakai transform, langsung bangun FormData manual
-            const fd = new FormData();
-            fd.append("_method", "PUT");
-            fd.append("nama", form.nama);
-            fd.append("brand", form.brand);
-            fd.append("harga", form.harga);
-            fd.append("stok", form.stok);
-            fd.append("status", form.status);
-            fd.append("ukuran", form.ukuran);
-            fd.append("deskripsi", form.deskripsi);
-            fd.append("is_featured", form.is_featured ? "1" : "0");
-            if (form.gambar instanceof File) {
-                fd.append("gambar", form.gambar);
-            }
-
-            router.post(`/admin/produk/${editData.id}`, fd, {
+            router.put(`/admin/produk/${editData.id}`, data, {
                 onSuccess: () => {
                     setShowModal(false);
-                    reset(emptyForm);
-                    setFotoPreview("");
+                    reset();
                 },
-                onError: (err) => console.error("Update Error:", err),
+                preserveScroll: true,
             });
         } else {
-            post("/admin/produk", {
-                forceFormData: true,
+            router.post("/admin/produk", data, {
                 onSuccess: () => {
                     setShowModal(false);
-                    reset(emptyForm);
-                    setFotoPreview("");
+                    reset();
                 },
-                onError: (err) => console.error("Error adding product:", err),
+                preserveScroll: true,
             });
         }
     };
 
-    const handleDelete = (id) => {
-        router.delete(`/admin/produk/${id}`, {
+    const handleDelete = () => {
+        router.delete(`/admin/produk/${showDelete.id}`, {
             onSuccess: () => setShowDelete(null),
+            preserveScroll: true,
         });
     };
 
-    const modalOverlay = {
+    const toggleUkuran = (uk) => {
+        const arr = Array.isArray(data.ukuran) ? data.ukuran : [];
+        setData(
+            "ukuran",
+            arr.includes(uk)
+                ? arr.filter((u) => u !== uk)
+                : [...arr, uk].sort((a, b) => Number(a) - Number(b)),
+        );
+    };
+
+    const modalStyle = {
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,.55)",
+        background: "rgba(0,0,0,.5)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -185,31 +99,10 @@ export default function ProdukAdmin({ admin, products: produk }) {
         padding: "1rem",
     };
 
-    const inputStyle = {
-        width: "100%",
-        border: "1.5px solid #e5e7eb",
-        borderRadius: 8,
-        padding: ".55rem .85rem",
-        fontSize: ".85rem",
-        outline: "none",
-        fontFamily: "inherit",
-        transition: "border-color .2s",
-        background: "#fafafa",
-    };
-
-    const labelStyle = {
-        display: "block",
-        fontSize: ".76rem",
-        fontWeight: 700,
-        color: "#444",
-        marginBottom: ".3rem",
-    };
-
     return (
         <AdminLayout active="Produk" admin={admin}>
             <Head title="Produk | Admin AMENG STORE" />
 
-            {/* ── Header ── */}
             <div
                 style={{
                     display: "flex",
@@ -228,10 +121,10 @@ export default function ProdukAdmin({ admin, products: produk }) {
                         style={{
                             fontSize: ".75rem",
                             color: "#888",
-                            marginTop: 2,
+                            marginTop: "2px",
                         }}
                     >
-                        {produk.length} produk terdaftar
+                        {(products || []).length} produk terdaftar
                     </p>
                 </div>
                 <button className="btn btn-primary" onClick={openAdd}>
@@ -239,7 +132,7 @@ export default function ProdukAdmin({ admin, products: produk }) {
                 </button>
             </div>
 
-            {/* ── Stat Cards ── */}
+            {/* Stat mini */}
             <div
                 style={{
                     display: "grid",
@@ -249,20 +142,34 @@ export default function ProdukAdmin({ admin, products: produk }) {
                 }}
             >
                 {[
-                    { label: "Total Produk", value: produk.length },
+                    {
+                        label: "Total Produk",
+                        value: (products || []).length,
+                        color: "#dbeafe",
+                        text: "#1d4ed8",
+                    },
                     {
                         label: "Produk Aktif",
-                        value: produk.filter((p) => p.status === "aktif")
-                            .length,
+                        value: (products || []).filter(
+                            (p) => p.status === "aktif",
+                        ).length,
+                        color: "#dcfce7",
+                        text: "#166534",
                     },
                     {
                         label: "Stok Menipis",
-                        value: produk.filter((p) => p.stok > 0 && p.stok < 8)
-                            .length,
+                        value: (products || []).filter(
+                            (p) => p.stok > 0 && p.stok < 8,
+                        ).length,
+                        color: "#fef9c3",
+                        text: "#854d0e",
                     },
                     {
                         label: "Stok Habis",
-                        value: produk.filter((p) => p.stok === 0).length,
+                        value: (products || []).filter((p) => p.stok === 0)
+                            .length,
+                        color: "#fee2e2",
+                        text: "#991b1b",
                     },
                 ].map((s, i) => (
                     <div
@@ -296,7 +203,7 @@ export default function ProdukAdmin({ admin, products: produk }) {
                 ))}
             </div>
 
-            {/* ── Table ── */}
+            {/* Tabel */}
             <div className="card">
                 <div className="card-header">
                     <input
@@ -304,7 +211,7 @@ export default function ProdukAdmin({ admin, products: produk }) {
                         style={{ maxWidth: 220, padding: ".45rem .85rem" }}
                         placeholder="🔍 Cari produk..."
                         value={search}
-                        onChange={(e) => setForm("nama", e.target.value)}
+                        onChange={(e) => setSearch(e.target.value)}
                     />
                     <div
                         style={{
@@ -313,7 +220,7 @@ export default function ProdukAdmin({ admin, products: produk }) {
                             flexWrap: "wrap",
                         }}
                     >
-                        {BRANDS.map((b) => (
+                        {brands.map((b) => (
                             <button
                                 key={b}
                                 onClick={() => setFilterBrand(b)}
@@ -338,7 +245,6 @@ export default function ProdukAdmin({ admin, products: produk }) {
                         ))}
                     </div>
                 </div>
-
                 <div className="tbl-wrap">
                     <table>
                         <thead>
@@ -349,7 +255,6 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                     "Brand",
                                     "Harga",
                                     "Stok",
-                                    "Terjual",
                                     "Status",
                                     "Aksi",
                                 ].map((h) => (
@@ -376,18 +281,63 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                                 gap: ".65rem",
                                             }}
                                         >
-                                            {/* ── FIX: pakai komponen ThumbnailProduk ── */}
-                                            <ThumbnailProduk
-                                                gambar={p.gambar}
-                                                nama={p.nama}
-                                            />
-                                            <div
-                                                style={{
-                                                    fontWeight: 600,
-                                                    fontSize: ".8rem",
-                                                }}
-                                            >
-                                                {p.nama}
+                                            {p.gambar ? (
+                                                <img
+                                                    src={p.gambar}
+                                                    alt={p.nama}
+                                                    style={{
+                                                        width: 38,
+                                                        height: 38,
+                                                        objectFit: "contain",
+                                                        borderRadius: 7,
+                                                        background: "#f9fafb",
+                                                        border: "1px solid #f0f0f0",
+                                                        flexShrink: 0,
+                                                    }}
+                                                    onError={(e) =>
+                                                        (e.target.style.display =
+                                                            "none")
+                                                    }
+                                                />
+                                            ) : (
+                                                <div
+                                                    style={{
+                                                        width: 38,
+                                                        height: 38,
+                                                        borderRadius: 7,
+                                                        background: "#f9fafb",
+                                                        border: "1px solid #f0f0f0",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent:
+                                                            "center",
+                                                        fontSize: "1.25rem",
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    👟
+                                                </div>
+                                            )}
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontWeight: 600,
+                                                        fontSize: ".8rem",
+                                                    }}
+                                                >
+                                                    {p.nama}
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        fontSize: ".68rem",
+                                                        color: "#aaa",
+                                                    }}
+                                                >
+                                                    Ukuran:{" "}
+                                                    {Array.isArray(p.ukuran)
+                                                        ? p.ukuran.join(", ")
+                                                        : "-"}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -420,7 +370,6 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                             {p.stok} pcs
                                         </span>
                                     </td>
-                                    <td>{p.terjual} pcs</td>
                                     <td>
                                         <span
                                             className="badge"
@@ -437,17 +386,6 @@ export default function ProdukAdmin({ admin, products: produk }) {
                                         >
                                             {p.status}
                                         </span>
-                                        {p.is_featured && (
-                                            <div
-                                                style={{
-                                                    fontSize: "10px",
-                                                    color: "#f59e0b",
-                                                    fontWeight: 800,
-                                                }}
-                                            >
-                                                ⭐ Featured
-                                            </div>
-                                        )}
                                     </td>
                                     <td>
                                         <div
@@ -475,7 +413,6 @@ export default function ProdukAdmin({ admin, products: produk }) {
                         </tbody>
                     </table>
                 </div>
-
                 <div
                     style={{
                         padding: ".65rem 1.25rem",
@@ -484,398 +421,281 @@ export default function ProdukAdmin({ admin, products: produk }) {
                         color: "#888",
                     }}
                 >
-                    Menampilkan {filtered.length} dari {produk.length} produk
+                    Menampilkan {filtered.length} dari {(products || []).length}{" "}
+                    produk
                 </div>
             </div>
 
-            {/* ══════════════════════════════════════════
-                  MODAL TAMBAH / EDIT PRODUK
-            ══════════════════════════════════════════ */}
+            {/* Modal Tambah/Edit */}
             {showModal && (
-                <div style={modalOverlay} onClick={() => setShowModal(false)}>
+                <div style={modalStyle} onClick={() => setShowModal(false)}>
                     <div
                         style={{
                             background: "#fff",
-                            borderRadius: 14,
-                            padding: "2rem",
+                            borderRadius: 12,
+                            padding: "1.75rem",
                             width: "100%",
-                            maxWidth: 500,
-                            boxShadow: "0 25px 70px rgba(0,0,0,.25)",
+                            maxWidth: 520,
+                            boxShadow: "0 20px 60px rgba(0,0,0,.15)",
                             maxHeight: "90vh",
                             overflowY: "auto",
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <h2
+                        <div
                             style={{
-                                fontWeight: 800,
-                                fontSize: "1.2rem",
-                                textAlign: "center",
-                                marginBottom: ".2rem",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "1.25rem",
                             }}
                         >
-                            {editData ? "Edit Produk" : "Tambah Produk Baru"}
-                        </h2>
-                        <p
-                            style={{
-                                fontSize: ".78rem",
-                                color: "#888",
-                                textAlign: "center",
-                                marginBottom: "1.5rem",
-                            }}
-                        >
-                            Lengkapi Detail Produk Untuk Mulai Berjualan
-                        </p>
-
-                        {/* Nama Produk */}
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={labelStyle}>Nama Produk</label>
-                            <input
-                                style={inputStyle}
-                                value={form.nama}
-                                onChange={(e) =>
-                                    setForm({ ...form, nama: e.target.value })
-                                }
-                                placeholder="Contoh : Adidas Spezial Black White"
-                            />
-                            {errors.nama && (
-                                <div
+                            <h2 style={{ fontWeight: 800, fontSize: "1rem" }}>
+                                {editData
+                                    ? "Edit Produk"
+                                    : "Tambah Produk Baru"}
+                            </h2>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    fontSize: "1.2rem",
+                                    cursor: "pointer",
+                                    color: "#888",
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <form onSubmit={handleSave}>
+                            <div className="form-group">
+                                <label className="form-label">
+                                    Nama Produk *
+                                </label>
+                                <input
+                                    className="form-input"
+                                    value={data.nama}
+                                    onChange={(e) =>
+                                        setData("nama", e.target.value)
+                                    }
+                                    placeholder="Nama produk"
+                                    required
+                                />
+                                {errors.nama && (
+                                    <p
+                                        style={{
+                                            color: "#dc2626",
+                                            fontSize: ".75rem",
+                                            marginTop: ".25rem",
+                                        }}
+                                    >
+                                        {errors.nama}
+                                    </p>
+                                )}
+                            </div>
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr 1fr",
+                                    gap: ".75rem",
+                                }}
+                            >
+                                <div className="form-group">
+                                    <label className="form-label">
+                                        Brand *
+                                    </label>
+                                    <select
+                                        className="form-input"
+                                        value={data.brand}
+                                        onChange={(e) =>
+                                            setData("brand", e.target.value)
+                                        }
+                                    >
+                                        {[
+                                            "VANS",
+                                            "NIKE",
+                                            "ADIDAS",
+                                            "CONVERSE",
+                                        ].map((b) => (
+                                            <option key={b}>{b}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Status</label>
+                                    <select
+                                        className="form-input"
+                                        value={data.status}
+                                        onChange={(e) =>
+                                            setData("status", e.target.value)
+                                        }
+                                    >
+                                        <option value="aktif">Aktif</option>
+                                        <option value="nonaktif">
+                                            Nonaktif
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr 1fr",
+                                    gap: ".75rem",
+                                }}
+                            >
+                                <div className="form-group">
+                                    <label className="form-label">
+                                        Harga (Rp) *
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        type="number"
+                                        value={data.harga}
+                                        onChange={(e) =>
+                                            setData("harga", e.target.value)
+                                        }
+                                        placeholder="899000"
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Stok *</label>
+                                    <input
+                                        className="form-input"
+                                        type="number"
+                                        value={data.stok}
+                                        onChange={(e) =>
+                                            setData("stok", e.target.value)
+                                        }
+                                        placeholder="10"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Deskripsi</label>
+                                <textarea
+                                    className="form-input"
+                                    rows={2}
+                                    value={data.deskripsi}
+                                    onChange={(e) =>
+                                        setData("deskripsi", e.target.value)
+                                    }
+                                    placeholder="Deskripsi produk"
+                                    style={{ resize: "vertical" }}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">
+                                    Path Gambar
+                                </label>
+                                <input
+                                    className="form-input"
+                                    value={data.gambar}
+                                    onChange={(e) =>
+                                        setData("gambar", e.target.value)
+                                    }
+                                    placeholder="/assets/img/produk.webp"
+                                />
+                                <p
                                     style={{
-                                        color: "red",
                                         fontSize: ".7rem",
-                                        marginTop: 4,
+                                        color: "#aaa",
+                                        marginTop: ".25rem",
                                     }}
                                 >
-                                    {errors.nama}
+                                    Contoh: /assets/img/vans3.webp
+                                </p>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">
+                                    Ukuran (EU)
+                                </label>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: ".35rem",
+                                        flexWrap: "wrap",
+                                        marginTop: ".25rem",
+                                    }}
+                                >
+                                    {[
+                                        "37",
+                                        "38",
+                                        "39",
+                                        "40",
+                                        "41",
+                                        "42",
+                                        "43",
+                                        "44",
+                                        "45",
+                                    ].map((uk) => (
+                                        <button
+                                            key={uk}
+                                            type="button"
+                                            onClick={() => toggleUkuran(uk)}
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 7,
+                                                border: `1.5px solid ${(data.ukuran || []).includes(uk) ? "#3b82f6" : "#e5e7eb"}`,
+                                                background: (
+                                                    data.ukuran || []
+                                                ).includes(uk)
+                                                    ? "#3b82f6"
+                                                    : "#fff",
+                                                color: (
+                                                    data.ukuran || []
+                                                ).includes(uk)
+                                                    ? "#fff"
+                                                    : "#374151",
+                                                fontSize: ".75rem",
+                                                fontWeight: 700,
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            {uk}
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
-                        </div>
-
-                        {/* Brand Produk */}
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={labelStyle}>Brand Produk</label>
-                            <select
-                                style={inputStyle}
-                                value={form.brand}
-                                onChange={(e) =>
-                                    setForm({ ...form, brand: e.target.value })
-                                }
-                            >
-                                {BRANDS.filter((b) => b !== "Semua").map(
-                                    (b) => (
-                                        <option key={b} value={b}>
-                                            {b}
-                                        </option>
-                                    ),
-                                )}
-                            </select>
-                        </div>
-
-                        {/* Harga & Stok */}
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr",
-                                gap: ".75rem",
-                                marginBottom: "1rem",
-                            }}
-                        >
-                            <div>
-                                <label style={labelStyle}>Harga</label>
-                                <input
-                                    style={inputStyle}
-                                    type="number"
-                                    value={form.harga}
-                                    onChange={(e) =>
-                                        setForm({
-                                            ...form,
-                                            harga: e.target.value,
-                                        })
-                                    }
-                                    placeholder="1000000"
-                                />
-                                {errors.harga && (
-                                    <div
-                                        style={{
-                                            color: "red",
-                                            fontSize: ".7rem",
-                                            marginTop: 4,
-                                        }}
-                                    >
-                                        {errors.harga}
-                                    </div>
-                                )}
                             </div>
-                            <div>
-                                <label style={labelStyle}>Stok</label>
-                                <input
-                                    style={inputStyle}
-                                    type="number"
-                                    value={form.stok}
-                                    onChange={(e) =>
-                                        setForm({
-                                            ...form,
-                                            stok: e.target.value,
-                                        })
-                                    }
-                                    placeholder="10"
-                                />
-                                {errors.stok && (
-                                    <div
-                                        style={{
-                                            color: "red",
-                                            fontSize: ".7rem",
-                                            marginTop: 4,
-                                        }}
-                                    >
-                                        {errors.stok}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Pilihan Ukuran */}
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={labelStyle}>Pilihan Ukuran</label>
-                            <input
-                                style={inputStyle}
-                                value={form.ukuran}
-                                onChange={(e) =>
-                                    setForm({ ...form, ukuran: e.target.value })
-                                }
-                                placeholder="Contoh : 38,39,40,41,42"
-                            />
-                        </div>
-
-                        {/* Deskripsi */}
-                        <div style={{ marginBottom: "1rem" }}>
-                            <label style={labelStyle}>Deskripsi Produk</label>
-                            <textarea
-                                style={{
-                                    ...inputStyle,
-                                    resize: "vertical",
-                                    minHeight: 90,
-                                    fontFamily: "inherit",
-                                }}
-                                value={form.deskripsi}
-                                onChange={(e) =>
-                                    setForm({
-                                        ...form,
-                                        deskripsi: e.target.value,
-                                    })
-                                }
-                                placeholder="Jelaskan Keunggulan Produk ini..."
-                            />
-                        </div>
-
-                        {/* Checkbox Featured */}
-                        <div
-                            style={{
-                                marginBottom: "1rem",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: ".5rem",
-                            }}
-                        >
-                            <input
-                                type="checkbox"
-                                id="is_featured"
-                                checked={form.is_featured}
-                                onChange={(e) =>
-                                    setForm({
-                                        ...form,
-                                        is_featured: e.target.checked,
-                                    })
-                                }
-                                style={{
-                                    width: "18px",
-                                    height: "18px",
-                                    cursor: "pointer",
-                                }}
-                            />
-                            <label
-                                htmlFor="is_featured"
-                                style={{
-                                    ...labelStyle,
-                                    marginBottom: 0,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Tampilkan di Halaman Utama (Featured)
-                            </label>
-                        </div>
-
-                        {/* Foto Produk */}
-                        <div style={{ marginBottom: "1.25rem" }}>
-                            <label style={labelStyle}>Foto Produk</label>
                             <div
                                 style={{
                                     display: "flex",
-                                    alignItems: "center",
                                     gap: ".6rem",
-                                    border: "1.5px solid #e5e7eb",
-                                    borderRadius: 8,
-                                    padding: ".45rem .85rem",
-                                    background: "#fafafa",
+                                    justifyContent: "flex-end",
+                                    marginTop: ".5rem",
                                 }}
                             >
                                 <button
                                     type="button"
-                                    onClick={() =>
-                                        fileInputRef.current?.click()
-                                    }
-                                    style={{
-                                        background: "#f3f4f6",
-                                        border: "1px solid #d1d5db",
-                                        borderRadius: 6,
-                                        padding: ".3rem .85rem",
-                                        fontSize: ".78rem",
-                                        fontWeight: 600,
-                                        cursor: "pointer",
-                                        whiteSpace: "nowrap",
-                                        color: "#333",
-                                    }}
+                                    className="btn btn-outline"
+                                    onClick={() => setShowModal(false)}
                                 >
-                                    Pilih file
+                                    Batal
                                 </button>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    style={{ display: "none" }}
-                                    onChange={handleFotoChange}
-                                />
-                                <span
-                                    style={{
-                                        fontSize: ".78rem",
-                                        color: "#aaa",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                    }}
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={processing}
                                 >
-                                    {form.gambar instanceof File
-                                        ? form.gambar.name
-                                        : "Tidak Ada File yang dipilih"}
-                                </span>
+                                    {processing
+                                        ? "Menyimpan..."
+                                        : editData
+                                          ? "Simpan Perubahan"
+                                          : "Tambah Produk"}
+                                </button>
                             </div>
-                            {errors.gambar && (
-                                <div
-                                    style={{
-                                        color: "red",
-                                        fontSize: ".7rem",
-                                        marginTop: 4,
-                                    }}
-                                >
-                                    {errors.gambar}
-                                </div>
-                            )}
-
-                            {/* Preview gambar — muncul untuk foto baru (base64) maupun lama (path) */}
-                            {fotoPreview && (
-                                <div
-                                    style={{
-                                        marginTop: ".6rem",
-                                        position: "relative",
-                                    }}
-                                >
-                                    <img
-                                        src={fotoPreview}
-                                        alt="Preview"
-                                        style={{
-                                            width: "100%",
-                                            borderRadius: 8,
-                                            objectFit: "cover",
-                                            maxHeight: 180,
-                                            border: "1px solid #e5e7eb",
-                                            display: "block",
-                                        }}
-                                        onError={(e) => {
-                                            e.target.style.display = "none";
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setForm("gambar", null); // Clear the file from form data
-                                            if (fileInputRef.current)
-                                                fileInputRef.current.value = "";
-                                        }}
-                                        style={{
-                                            position: "absolute",
-                                            top: 6,
-                                            right: 6,
-                                            background: "rgba(0,0,0,.55)",
-                                            color: "#fff",
-                                            border: "none",
-                                            borderRadius: "50%",
-                                            width: 24,
-                                            height: 24,
-                                            cursor: "pointer",
-                                            fontSize: ".75rem",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                        }}
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Tombol Simpan */}
-                        <button
-                            type="button"
-                            disabled={processing}
-                            onClick={handleSave}
-                            style={{
-                                width: "100%",
-                                background: "#f97316",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: 9,
-                                padding: ".78rem",
-                                fontSize: ".95rem",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                letterSpacing: ".02em",
-                            }}
-                        >
-                            {processing
-                                ? "Menyimpan..."
-                                : editData
-                                  ? "Simpan Perubahan"
-                                  : "Publikasikan Produk"}
-                        </button>
-
-                        {/* Kembali */}
-                        <button
-                            type="button"
-                            onClick={() => setShowModal(false)}
-                            style={{
-                                display: "block",
-                                width: "100%",
-                                background: "none",
-                                border: "none",
-                                marginTop: ".75rem",
-                                fontSize: ".78rem",
-                                color: "#888",
-                                cursor: "pointer",
-                                textAlign: "center",
-                            }}
-                        >
-                            ← Kembali Ke Dashboard
-                        </button>
+                        </form>
                     </div>
                 </div>
             )}
 
-            {/* ══════════════════════════════════════════
-                  MODAL HAPUS
-            ══════════════════════════════════════════ */}
+            {/* Modal Hapus */}
             {showDelete && (
-                <div style={modalOverlay} onClick={() => setShowDelete(null)}>
+                <div style={modalStyle} onClick={() => setShowDelete(null)}>
                     <div
                         style={{
                             background: "#fff",
@@ -924,7 +744,7 @@ export default function ProdukAdmin({ admin, products: produk }) {
                             </button>
                             <button
                                 className="btn btn-danger"
-                                onClick={() => handleDelete(showDelete.id)}
+                                onClick={handleDelete}
                             >
                                 Ya, Hapus
                             </button>
