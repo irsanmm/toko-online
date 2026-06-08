@@ -1,55 +1,18 @@
 import { Head, Link, router } from "@inertiajs/react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Layout from "./Layout";
 import TrackingResi from "./TrackingResi";
-import Swal from "sweetalert2";
 
 export default function PesananSaya({
-    pesanan: initialPesanan,
+    pesanan,
     notifikasi: initialNotifikasi,
 }) {
     const [activeTab, setActiveTab] = useState("Semua");
     const [detail, setDetail] = useState(null);
     const [trackingPesanan, setTracking] = useState(null);
-
-    // ── Notifikasi: pakai localStorage ──────────────────────────────
-    const NOTIF_KEY = "amengstore_notifikasi";
-
-    const [notifikasi, setNotifikasi] = useState([]);
-
-    // ── Pesanan: pakai localStorage ──────────────────────────────────
-    const PESANAN_KEY = "amengstore_pesanan_deleted";
-
-    const [pesanan, setPesanan] = useState([]);
-    const [showDeletePesanan, setShowDeletePesanan] = useState(null);
-
-    // Sinkronisasi data saat pertama kali load dan saat props berubah
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            // Load Pesanan
-            const deleted = JSON.parse(
-                localStorage.getItem(PESANAN_KEY) || "[]",
-            );
-            setPesanan(
-                (initialPesanan || []).filter((p) => !deleted.includes(p.id)),
-            );
-
-            // Load Notif
-            const cleared = localStorage.getItem(NOTIF_KEY + "_cleared");
-            if (cleared === "true") {
-                setNotifikasi([]);
-            } else {
-                const dismissed = JSON.parse(
-                    localStorage.getItem(NOTIF_KEY + "_dismissed") || "[]",
-                );
-                setNotifikasi(
-                    (initialNotifikasi || []).filter(
-                        (_, i) => !dismissed.includes(i),
-                    ),
-                );
-            }
-        }
-    }, [initialPesanan, initialNotifikasi]);
+    const [notifikasi, setNotifikasi] = useState(initialNotifikasi || []);
+    const [konfirmModal, setKonfirmModal] = useState(null); // pesanan yang mau dikonfirmasi
+    const [loadingId, setLoadingId] = useState(null);
 
     const tabs = ["Semua", "Diproses", "Dikirim", "Selesai", "Batal"];
     const fmtHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
@@ -67,74 +30,27 @@ export default function PesananSaya({
             ? pesanan
             : pesanan.filter((p) => p.status === activeTab);
 
-    // ── Hapus satu notifikasi ────────────────────────────────────────
-    const hapusNotif = (index) => {
-        // index adalah index dari array initialNotifikasi
-        const realIndex = (initialNotifikasi || []).findIndex(
-            (n) => n === notifikasi[index],
+    // Hapus notifikasi
+    const hapusNotif = (i) =>
+        setNotifikasi((prev) => prev.filter((_, idx) => idx !== i));
+    const hapusSemuaNotif = () => setNotifikasi([]);
+
+    // Konfirmasi pesanan diterima
+    const handlePesananDiterima = () => {
+        if (!konfirmModal) return;
+        setLoadingId(konfirmModal.id);
+        router.post(
+            "/pembeli/pesanan-diterima",
+            { nomor_pesanan: konfirmModal.id },
+            {
+                onSuccess: () => {
+                    setKonfirmModal(null);
+                    setLoadingId(null);
+                },
+                onError: () => setLoadingId(null),
+                preserveScroll: true,
+            },
         );
-        const dismissed = JSON.parse(
-            localStorage.getItem(NOTIF_KEY + "_dismissed") || "[]",
-        );
-        if (realIndex !== -1 && !dismissed.includes(realIndex)) {
-            dismissed.push(realIndex);
-            localStorage.setItem(
-                NOTIF_KEY + "_dismissed",
-                JSON.stringify(dismissed),
-            );
-        }
-        setNotifikasi((prev) => prev.filter((_, i) => i !== index));
-    };
-
-    // ── Hapus semua notifikasi ───────────────────────────────────────
-    const hapusSemuaNotif = () => {
-        localStorage.setItem(NOTIF_KEY + "_cleared", "true");
-        localStorage.removeItem(NOTIF_KEY + "_dismissed");
-        setNotifikasi([]);
-    };
-
-    // ── Hapus satu pesanan ───────────────────────────────────────────
-    const hapusPesanan = (id) => {
-        const deleted = JSON.parse(localStorage.getItem(PESANAN_KEY) || "[]");
-        if (!deleted.includes(id)) {
-            deleted.push(id);
-            localStorage.setItem(PESANAN_KEY, JSON.stringify(deleted));
-        }
-        setPesanan((prev) => prev.filter((p) => p.id !== id));
-        setShowDeletePesanan(null);
-    };
-
-    // ── Selesaikan Pesanan (Kirim ke Laravel via Inertia) ──────────────────
-    const handlePesananSelesai = (id) => {
-        Swal.fire({
-            title: "Konfirmasi Pesanan",
-            text: "Apakah Anda yakin telah menerima pesanan ini? Status akan berubah menjadi Selesai.",
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonColor: "#22c55e",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Ya, Diterima!",
-            cancelButtonText: "Batal",
-            borderRadius: 14,
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // 1. Update state di frontend secara instan (Optimistic Update)
-                setPesanan((prev) =>
-                    prev.map((p) =>
-                        p.id === id ? { ...p, status: "Selesai" } : p,
-                    ),
-                );
-
-                // 2. Kirim data ke backend Laravel
-                router.post(
-                    `/pesanan/selesai/${encodeURIComponent(id)}`,
-                    {},
-                    {
-                        preserveScroll: true,
-                    },
-                );
-            }
-        });
     };
 
     const modalStyle = {
@@ -174,7 +90,7 @@ export default function PesananSaya({
                     </p>
                 </div>
 
-                {/* ===== NOTIFIKASI ===== */}
+                {/* NOTIFIKASI */}
                 {notifikasi.length > 0 && (
                     <div style={{ marginBottom: "1.5rem" }}>
                         <div
@@ -203,14 +119,11 @@ export default function PesananSaya({
                                     color: "#888",
                                     cursor: "pointer",
                                     fontWeight: 600,
-                                    padding: "2px 6px",
-                                    borderRadius: 6,
                                 }}
                             >
                                 Hapus semua
                             </button>
                         </div>
-
                         <div
                             style={{
                                 display: "flex",
@@ -238,17 +151,15 @@ export default function PesananSaya({
                                         style={{
                                             fontSize: "1.3rem",
                                             flexShrink: 0,
-                                            marginTop: "1px",
                                         }}
                                     >
                                         {n.type === "dikirim" ? "🚚" : "✅"}
                                     </span>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ flex: 1 }}>
                                         <div
                                             style={{
                                                 fontWeight: 700,
                                                 fontSize: ".875rem",
-                                                color: "#111",
                                             }}
                                         >
                                             {n.judul}
@@ -268,7 +179,6 @@ export default function PesananSaya({
                                                     display: "inline-block",
                                                     marginTop: ".4rem",
                                                     background: "#fff",
-                                                    border: `1px solid ${n.type === "dikirim" ? "#bfdbfe" : "#bbf7d0"}`,
                                                     borderRadius: 6,
                                                     padding: "2px 8px",
                                                     fontSize: ".72rem",
@@ -277,6 +187,7 @@ export default function PesananSaya({
                                                         n.type === "dikirim"
                                                             ? "#1d4ed8"
                                                             : "#166534",
+                                                    border: `1px solid ${n.type === "dikirim" ? "#bfdbfe" : "#bbf7d0"}`,
                                                 }}
                                             >
                                                 {n.kurir?.toUpperCase()} ·{" "}
@@ -301,9 +212,6 @@ export default function PesananSaya({
                                             cursor: "pointer",
                                             color: "#aaa",
                                             fontSize: "1rem",
-                                            padding: "2px 4px",
-                                            flexShrink: 0,
-                                            lineHeight: 1,
                                         }}
                                     >
                                         ✕
@@ -314,13 +222,12 @@ export default function PesananSaya({
                     </div>
                 )}
 
-                {/* ===== TAB FILTER ===== */}
+                {/* TAB FILTER */}
                 <div
                     style={{
                         display: "flex",
                         borderBottom: "2px solid #f0f0f0",
                         marginBottom: "1.5rem",
-                        flexWrap: "wrap",
                     }}
                 >
                     {tabs.map((tab) => (
@@ -337,7 +244,6 @@ export default function PesananSaya({
                                 cursor: "pointer",
                                 fontSize: ".85rem",
                                 marginBottom: "-2px",
-                                transition: "all .2s",
                             }}
                         >
                             {tab}
@@ -364,7 +270,7 @@ export default function PesananSaya({
                     ))}
                 </div>
 
-                {/* ===== LIST PESANAN ===== */}
+                {/* LIST PESANAN */}
                 {filtered.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "4rem 0" }}>
                         <p style={{ fontSize: "3rem" }}>📦</p>
@@ -406,9 +312,11 @@ export default function PesananSaya({
                                     borderRadius: 14,
                                     border: "1px solid #f0f0f0",
                                     overflow: "hidden",
+                                    opacity: loadingId === p.id ? 0.7 : 1,
+                                    transition: "opacity .2s",
                                 }}
                             >
-                                {/* Header card */}
+                                {/* Header */}
                                 <div
                                     style={{
                                         display: "flex",
@@ -446,53 +354,25 @@ export default function PesananSaya({
                                             {p.tanggal}
                                         </span>
                                     </div>
-                                    <div
+                                    <span
                                         style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: ".5rem",
+                                            padding: "3px 12px",
+                                            borderRadius: 999,
+                                            fontSize: ".72rem",
+                                            fontWeight: 700,
+                                            background:
+                                                statusStyle[p.status]?.bg ||
+                                                "#f0f0f0",
+                                            color:
+                                                statusStyle[p.status]?.color ||
+                                                "#555",
                                         }}
                                     >
-                                        <span
-                                            style={{
-                                                padding: "3px 12px",
-                                                borderRadius: 999,
-                                                fontSize: ".72rem",
-                                                fontWeight: 700,
-                                                background:
-                                                    statusStyle[p.status]?.bg ||
-                                                    "#f0f0f0",
-                                                color:
-                                                    statusStyle[p.status]
-                                                        ?.color || "#555",
-                                            }}
-                                        >
-                                            {p.status}
-                                        </span>
-                                        {/* Tombol hapus pesanan */}
-                                        <button
-                                            onClick={() =>
-                                                setShowDeletePesanan(p)
-                                            }
-                                            title="Hapus pesanan"
-                                            style={{
-                                                background: "none",
-                                                border: "1.5px solid #fca5a5",
-                                                borderRadius: 7,
-                                                color: "#ef4444",
-                                                fontSize: ".75rem",
-                                                fontWeight: 700,
-                                                padding: "2px 8px",
-                                                cursor: "pointer",
-                                                lineHeight: 1.5,
-                                            }}
-                                        >
-                                            🗑 Hapus
-                                        </button>
-                                    </div>
+                                        {p.status}
+                                    </span>
                                 </div>
 
-                                {/* Body card */}
+                                {/* Body */}
                                 <div
                                     style={{
                                         padding: "1rem 1.25rem",
@@ -514,26 +394,9 @@ export default function PesananSaya({
                                             justifyContent: "center",
                                             fontSize: "1.75rem",
                                             flexShrink: 0,
-                                            overflow: "hidden",
                                         }}
                                     >
-                                        {p.gambar ? (
-                                            <img
-                                                src={p.gambar}
-                                                alt={p.produk}
-                                                style={{
-                                                    width: "100%",
-                                                    height: "100%",
-                                                    objectFit: "cover",
-                                                }}
-                                                onError={(e) => {
-                                                    e.target.style.display =
-                                                        "none";
-                                                }}
-                                            />
-                                        ) : (
-                                            "👟"
-                                        )}
+                                        👟
                                     </div>
 
                                     <div style={{ flex: 1 }}>
@@ -567,6 +430,7 @@ export default function PesananSaya({
                                         </div>
                                     </div>
 
+                                    {/* TOMBOL AKSI */}
                                     <div
                                         style={{
                                             display: "flex",
@@ -589,6 +453,39 @@ export default function PesananSaya({
                                         >
                                             Lihat Detail
                                         </button>
+
+                                        {/* Tombol Pesanan Diterima — hanya muncul saat Dikirim */}
+                                        {p.status === "Dikirim" && (
+                                            <button
+                                                onClick={() =>
+                                                    setKonfirmModal(p)
+                                                }
+                                                disabled={loadingId === p.id}
+                                                style={{
+                                                    padding: ".45rem 1rem",
+                                                    borderRadius: 8,
+                                                    border: "none",
+                                                    background: "#22c55e",
+                                                    color: "#fff",
+                                                    fontSize: ".78rem",
+                                                    fontWeight: 700,
+                                                    cursor:
+                                                        loadingId === p.id
+                                                            ? "not-allowed"
+                                                            : "pointer",
+                                                    opacity:
+                                                        loadingId === p.id
+                                                            ? 0.7
+                                                            : 1,
+                                                }}
+                                            >
+                                                {loadingId === p.id
+                                                    ? "⏳ Memproses..."
+                                                    : "✅ Pesanan Diterima"}
+                                            </button>
+                                        )}
+
+                                        {/* Tombol Beri Ulasan — hanya muncul saat Selesai */}
                                         {p.status === "Selesai" && (
                                             <button
                                                 style={{
@@ -603,25 +500,6 @@ export default function PesananSaya({
                                                 }}
                                             >
                                                 ⭐ Beri Ulasan
-                                            </button>
-                                        )}
-                                        {p.status === "Dikirim" && (
-                                            <button
-                                                onClick={() =>
-                                                    handlePesananSelesai(p.id)
-                                                }
-                                                style={{
-                                                    padding: ".45rem 1rem",
-                                                    borderRadius: 8,
-                                                    border: "none",
-                                                    background: "#22c55e",
-                                                    color: "#fff",
-                                                    fontSize: ".78rem",
-                                                    fontWeight: 700,
-                                                    cursor: "pointer",
-                                                }}
-                                            >
-                                                ✅ Pesanan Diterima
                                             </button>
                                         )}
                                     </div>
@@ -690,7 +568,7 @@ export default function PesananSaya({
                 )}
             </div>
 
-            {/* ══ Modal Detail Pesanan ══ */}
+            {/* MODAL DETAIL */}
             {detail && (
                 <div style={modalStyle} onClick={() => setDetail(null)}>
                     <div
@@ -787,7 +665,6 @@ export default function PesananSaya({
                             ))}
                         </div>
                         <button
-                            onClick={() => setDetail(null)}
                             style={{
                                 width: "100%",
                                 padding: ".75rem",
@@ -798,6 +675,7 @@ export default function PesananSaya({
                                 fontWeight: 700,
                                 cursor: "pointer",
                             }}
+                            onClick={() => setDetail(null)}
                         >
                             Tutup
                         </button>
@@ -805,89 +683,91 @@ export default function PesananSaya({
                 </div>
             )}
 
-            {/* ══ Modal Konfirmasi Hapus Pesanan ══ */}
-            {showDeletePesanan && (
-                <div
-                    style={modalStyle}
-                    onClick={() => setShowDeletePesanan(null)}
-                >
+            {/* MODAL KONFIRMASI PESANAN DITERIMA */}
+            {konfirmModal && (
+                <div style={modalStyle} onClick={() => setKonfirmModal(null)}>
                     <div
                         style={{
                             background: "#fff",
                             borderRadius: 14,
                             padding: "1.75rem",
                             width: "100%",
-                            maxWidth: 380,
+                            maxWidth: 400,
                             boxShadow: "0 20px 60px rgba(0,0,0,.15)",
                             textAlign: "center",
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div
+                        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>
+                            📦
+                        </div>
+                        <h2
                             style={{
-                                fontSize: "2.5rem",
-                                marginBottom: ".75rem",
+                                fontWeight: 800,
+                                fontSize: "1.1rem",
+                                marginBottom: ".5rem",
                             }}
                         >
-                            🗑️
-                        </div>
-                        <h2 style={{ fontWeight: 800, marginBottom: ".5rem" }}>
-                            Hapus Pesanan?
+                            Konfirmasi Pesanan Diterima
                         </h2>
                         <p
                             style={{
-                                fontSize: ".85rem",
-                                color: "#888",
-                                marginBottom: "1.5rem",
+                                fontSize: ".875rem",
+                                color: "#555",
+                                marginBottom: ".5rem",
                             }}
                         >
-                            Pesanan <strong>{showDeletePesanan.id}</strong> akan
-                            dihapus dari daftarmu.
+                            Pesanan <strong>{konfirmModal.id}</strong>
                         </p>
-                        <div
+                        <p
                             style={{
-                                display: "flex",
-                                gap: ".6rem",
-                                justifyContent: "center",
+                                fontSize: ".82rem",
+                                color: "#888",
+                                marginBottom: "1.75rem",
+                                lineHeight: 1.6,
                             }}
                         >
+                            Apakah kamu sudah menerima paket ini dengan kondisi
+                            baik? Status pesanan akan berubah menjadi{" "}
+                            <strong>Selesai</strong>.
+                        </p>
+                        <div style={{ display: "flex", gap: ".6rem" }}>
                             <button
-                                onClick={() => setShowDeletePesanan(null)}
+                                onClick={() => setKonfirmModal(null)}
                                 style={{
-                                    padding: ".55rem 1.25rem",
-                                    borderRadius: 8,
+                                    flex: 1,
+                                    padding: ".75rem",
+                                    background: "#f9fafb",
+                                    color: "#111",
                                     border: "1.5px solid #e5e7eb",
-                                    background: "#fff",
+                                    borderRadius: 10,
                                     fontWeight: 700,
-                                    fontSize: ".85rem",
                                     cursor: "pointer",
                                 }}
                             >
-                                Batal
+                                Belum
                             </button>
                             <button
-                                onClick={() =>
-                                    hapusPesanan(showDeletePesanan.id)
-                                }
+                                onClick={handlePesananDiterima}
                                 style={{
-                                    padding: ".55rem 1.25rem",
-                                    borderRadius: 8,
-                                    border: "none",
-                                    background: "#ef4444",
+                                    flex: 1,
+                                    padding: ".75rem",
+                                    background: "#22c55e",
                                     color: "#fff",
+                                    border: "none",
+                                    borderRadius: 10,
                                     fontWeight: 700,
-                                    fontSize: ".85rem",
                                     cursor: "pointer",
                                 }}
                             >
-                                Ya, Hapus
+                                Ya, Sudah Diterima ✅
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ══ Modal Tracking ══ */}
+            {/* MODAL TRACKING */}
             {trackingPesanan && (
                 <TrackingResi
                     nomorPesanan={trackingPesanan.id}
