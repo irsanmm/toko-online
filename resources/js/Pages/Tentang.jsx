@@ -8,8 +8,8 @@ export default function Tentang() {
     const stats = [
         { angka: "500+", label: "Produk Tersedia" },
         { angka: "10rb+", label: "Pelanggan Puas" },
-        { angka: "4.9★", label: "Rating Toko" },
-        { angka: "3 Thn", label: "Pengalaman" },
+        { angka: "4.8★", label: "Rating Toko" },
+        { angka: "5 Tahun", label: "Pengalaman" },
     ];
 
     return (
