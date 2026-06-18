@@ -287,7 +287,7 @@ export default function Home({ featured }) {
                                 border: "2px solid #111",
                             }}
                         >
-                            Daftar & Dapat Voucher
+                            Daftar Sekarang
                         </Link>
                     </div>
                 </section>
