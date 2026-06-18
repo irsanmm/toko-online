@@ -341,7 +341,7 @@ export default function DetailProduk({ produk }) {
                             >
                                 {added
                                     ? "✅ Ditambahkan!"
-                                    : "🛒 Tambah ke Keranjang"}
+                                    : "Tambah ke Keranjang"}
                             </button>
                             <Link
                                 href="/checkout"
