@@ -259,7 +259,7 @@ export default function Checkout({ alamatPembeli }) {
                                         },
                                         {
                                             key: "telepon",
-                                            label: "No. WhatsApp",
+                                            label: "No. Telepon",
                                             placeholder: "08xxxxxxxxxx",
                                             type: "text",
                                         },
@@ -551,7 +551,7 @@ export default function Checkout({ alamatPembeli }) {
                                                 cursor: "pointer",
                                             }}
                                         >
-                                            ← Kembali
+                                            Kembali
                                         </button>
 
                                         <button
@@ -579,7 +579,7 @@ export default function Checkout({ alamatPembeli }) {
                                         >
                                             {processing
                                                 ? "⏳ Memproses..."
-                                                : "🎉 Konfirmasi Pesanan"}
+                                                : "Buat Pesanan"}
                                         </button>
                                     </div>
                                 </div>
