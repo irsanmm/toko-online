@@ -34,7 +34,7 @@ export default function Katalog({ products }) {
                         Katalog Produk
                     </h1>
                     <p style={{ color: "#888", marginTop: "0.4rem" }}>
-                        Temukan sepatu impian kamu
+                        Temukan sepatu yang kamu impikan!
                     </p>
                 </div>
 
