@@ -360,7 +360,7 @@ export default function Keranjang() {
                                     (e.target.style.background = "#111")
                                 }
                             >
-                                Lanjut ke Checkout →
+                                Checkout Sekarang
                             </Link>
                             <Link
                                 href="/katalog"
