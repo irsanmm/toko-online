@@ -40,10 +40,10 @@ export default function Kontak() {
         {
             icon: "📍",
             label: "Alamat",
-            val: "Jl. Sepatu Indah No. 1, Tasikmalaya",
+            val: "Jl. Mitra Batik No. 22, Tasikmalaya",
         },
         { icon: "📱", label: "WhatsApp", val: "0812-3456-7890" },
-        { icon: "📧", label: "Email", val: "hello@amengstore.id" },
+        { icon: "📧", label: "Email", val: "amengstore@gmail.com" },
     ];
 
     return (
