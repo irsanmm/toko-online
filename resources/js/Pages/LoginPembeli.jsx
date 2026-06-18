@@ -248,7 +248,7 @@ export default function LoginPembeli() {
                 <p className="footer-text">
                     Belum Punya akun?{" "}
                     <Link href="/pembeli/register" className="link-orange">
-                        Daftar Sekarang
+                        DAFTAR SEKARANG
                     </Link>
                 </p>
 
