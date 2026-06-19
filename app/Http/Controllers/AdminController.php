@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
@@ -108,52 +109,99 @@ class AdminController extends Controller
     public function storeProduk(Request $request)
     {
         if ($r = $this->checkAdmin()) return $r;
+    
         $request->validate([
-            'nama'  => 'required|string',
-            'brand' => 'required|string',
-            'harga' => 'required|numeric|min:0',
-            'stok'  => 'required|integer|min:0',
+            'nama'   => 'required|string',
+            'brand'  => 'required|string',
+            'harga'  => 'required|numeric|min:0',
+            'stok'   => 'required|integer|min:0',
+            'gambar' => 'nullable|image|max:2048', // max 2MB
         ]);
-        Product::create([
+    
+        $data = [
             'nama'      => $request->nama,
             'brand'     => strtoupper($request->brand),
             'deskripsi' => $request->deskripsi,
             'harga'     => $request->harga,
             'stok'      => $request->stok,
-            'gambar'    => $request->gambar,
             'ukuran'    => $request->ukuran ?? [],
             'status'    => $request->status ?? 'aktif',
-        ]);
+        ];
+    
+        // Upload gambar kalau ada file yang dikirim
+        if ($request->hasFile('gambar')) {
+            $data['gambar'] = $request->file('gambar')->store('produk', 'public');
+        }
+    
+        Product::create($data);
+    
         return back()->with('success', 'Produk berhasil ditambahkan.');
     }
 
     public function updateProduk(Request $request, $id)
     {
         if ($r = $this->checkAdmin()) return $r;
+    
         $request->validate([
-            'nama'  => 'required|string',
-            'brand' => 'required|string',
-            'harga' => 'required|numeric|min:0',
-            'stok'  => 'required|integer|min:0',
+            'nama'   => 'required|string',
+            'brand'  => 'required|string',
+            'harga'  => 'required|numeric|min:0',
+            'stok'   => 'required|integer|min:0',
+            'gambar' => 'nullable|image|max:2048',
         ]);
-        Product::findOrFail($id)->update([
+    
+        $product = Product::findOrFail($id);
+    
+        $data = [
             'nama'      => $request->nama,
             'brand'     => strtoupper($request->brand),
             'deskripsi' => $request->deskripsi,
             'harga'     => $request->harga,
             'stok'      => $request->stok,
-            'gambar'    => $request->gambar,
             'ukuran'    => $request->ukuran ?? [],
             'status'    => $request->status ?? 'aktif',
-        ]);
+        ];
+    
+        // Hanya update gambar kalau admin upload file baru
+        if ($request->hasFile('gambar')) {
+            // Hapus gambar lama dari storage (kalau itu file upload, bukan path /assets/ lama)
+            if ($product->gambar && !str_starts_with($product->gambar, '/') &&
+                Storage::disk('public')->exists($product->gambar)) {
+                Storage::disk('public')->delete($product->gambar);
+            }
+            $data['gambar'] = $request->file('gambar')->store('produk', 'public');
+        }
+    
+        $product->update($data);
+    
         return back()->with('success', 'Produk berhasil diperbarui.');
     }
 
     public function deleteProduk($id)
     {
         if ($r = $this->checkAdmin()) return $r;
-        Product::findOrFail($id)->delete();
+    
+        $product = Product::findOrFail($id);
+    
+        // Hapus file gambar dari storage juga
+        if ($product->gambar && !str_starts_with($product->gambar, '/') &&
+            Storage::disk('public')->exists($product->gambar)) {
+            Storage::disk('public')->delete($product->gambar);
+        }
+    
+        $product->delete();
+    
         return back()->with('success', 'Produk berhasil dihapus.');
+    }
+
+    public function deletePesanan($nomorPesanan)
+    {
+        if ($r = $this->checkAdmin()) return $r;
+    
+        $order = Order::where('nomor_pesanan', $nomorPesanan)->firstOrFail();
+        $order->delete(); // order_items ikut terhapus otomatis (FK cascade)
+    
+        return back()->with('success', "Pesanan {$nomorPesanan} berhasil dihapus.");
     }
 
     // ===== PESANAN =====

@@ -2,14 +2,21 @@ import { Head, router, useForm } from "@inertiajs/react";
 import { useState } from "react";
 import AdminLayout from "./AdminLayout";
 
+// Helper untuk path gambar — support gambar upload baru (/storage/...) dan path lama (/assets/...)
+const imgSrc = (g) => {
+    if (!g) return null;
+    return g.startsWith("/") ? g : `/storage/${g}`;
+};
+
 export default function ProdukAdmin({ admin, products }) {
     const [search, setSearch] = useState("");
     const [filterBrand, setFilterBrand] = useState("Semua");
     const [showModal, setShowModal] = useState(false);
     const [editData, setEditData] = useState(null);
     const [showDelete, setShowDelete] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
 
-    const { data, setData, post, put, processing, errors, reset } = useForm({
+    const { data, setData, processing, errors, reset } = useForm({
         nama: "",
         brand: "VANS",
         deskripsi: "",
@@ -17,7 +24,7 @@ export default function ProdukAdmin({ admin, products }) {
         stok: "",
         ukuran: [],
         status: "aktif",
-        gambar: "",
+        gambar: null,
     });
 
     const brands = ["Semua", "VANS", "NIKE", "ADIDAS", "CONVERSE"];
@@ -31,12 +38,14 @@ export default function ProdukAdmin({ admin, products }) {
 
     const openAdd = () => {
         setEditData(null);
+        setPreviewUrl(null);
         reset();
         setShowModal(true);
     };
 
     const openEdit = (p) => {
         setEditData(p);
+        setPreviewUrl(null); // tampilkan gambar lama dari produk, bukan preview baru
         setData({
             nama: p.nama,
             brand: p.brand,
@@ -45,9 +54,17 @@ export default function ProdukAdmin({ admin, products }) {
             stok: p.stok,
             ukuran: Array.isArray(p.ukuran) ? p.ukuran : [],
             status: p.status,
-            gambar: p.gambar || "",
+            gambar: null, // gambar dikosongkan, hanya diisi kalau upload baru
         });
         setShowModal(true);
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setData("gambar", file);
+            setPreviewUrl(URL.createObjectURL(file));
+        }
     };
 
     const handleSave = (e) => {
@@ -57,6 +74,7 @@ export default function ProdukAdmin({ admin, products }) {
                 onSuccess: () => {
                     setShowModal(false);
                     reset();
+                    setPreviewUrl(null);
                 },
                 preserveScroll: true,
             });
@@ -65,6 +83,7 @@ export default function ProdukAdmin({ admin, products }) {
                 onSuccess: () => {
                     setShowModal(false);
                     reset();
+                    setPreviewUrl(null);
                 },
                 preserveScroll: true,
             });
@@ -98,6 +117,10 @@ export default function ProdukAdmin({ admin, products }) {
         zIndex: 999,
         padding: "1rem",
     };
+
+    // Gambar yang ditampilkan di preview modal: baru dipilih > gambar lama produk > kosong
+    const displayPreview =
+        previewUrl || (editData ? imgSrc(editData.gambar) : null);
 
     return (
         <AdminLayout active="Produk" admin={admin}>
@@ -281,23 +304,23 @@ export default function ProdukAdmin({ admin, products }) {
                                                 gap: ".65rem",
                                             }}
                                         >
-                                            {p.gambar ? (
+                                            {imgSrc(p.gambar) ? (
                                                 <img
-                                                    src={p.gambar}
+                                                    src={imgSrc(p.gambar)}
                                                     alt={p.nama}
                                                     style={{
                                                         width: 38,
                                                         height: 38,
-                                                        objectFit: "contain",
+                                                        objectFit: "cover",
                                                         borderRadius: 7,
                                                         background: "#f9fafb",
                                                         border: "1px solid #f0f0f0",
                                                         flexShrink: 0,
                                                     }}
-                                                    onError={(e) =>
-                                                        (e.target.style.display =
-                                                            "none")
-                                                    }
+                                                    onError={(e) => {
+                                                        e.target.style.display =
+                                                            "none";
+                                                    }}
                                                 />
                                             ) : (
                                                 <div
@@ -469,6 +492,95 @@ export default function ProdukAdmin({ admin, products }) {
                             </button>
                         </div>
                         <form onSubmit={handleSave}>
+                            {/* ===== UPLOAD GAMBAR ===== */}
+                            <div className="form-group">
+                                <label className="form-label">
+                                    Foto Produk
+                                </label>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: "1rem",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    {/* Preview */}
+                                    <div
+                                        style={{
+                                            width: 90,
+                                            height: 90,
+                                            borderRadius: 10,
+                                            background: "#f9fafb",
+                                            border: "1.5px dashed #e5e7eb",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            overflow: "hidden",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {displayPreview ? (
+                                            <img
+                                                src={displayPreview}
+                                                alt="Preview"
+                                                style={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    objectFit: "cover",
+                                                }}
+                                            />
+                                        ) : (
+                                            <span
+                                                style={{
+                                                    fontSize: "1.75rem",
+                                                    color: "#ccc",
+                                                }}
+                                            >
+                                                👟
+                                            </span>
+                                        )}
+                                    </div>
+                                    {/* Tombol pilih file */}
+                                    <div style={{ flex: 1 }}>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                            style={{
+                                                width: "100%",
+                                                padding: ".5rem",
+                                                border: "1.5px solid #e5e7eb",
+                                                borderRadius: 8,
+                                                fontSize: ".8rem",
+                                                background: "#fff",
+                                            }}
+                                        />
+                                        <p
+                                            style={{
+                                                fontSize: ".7rem",
+                                                color: "#aaa",
+                                                marginTop: ".4rem",
+                                            }}
+                                        >
+                                            Format JPG/PNG, maksimal 2MB.{" "}
+                                            {editData &&
+                                                "Biarkan kosong jika tidak ingin mengubah foto."}
+                                        </p>
+                                        {errors.gambar && (
+                                            <p
+                                                style={{
+                                                    color: "#dc2626",
+                                                    fontSize: ".75rem",
+                                                    marginTop: ".25rem",
+                                                }}
+                                            >
+                                                {errors.gambar}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="form-group">
                                 <label className="form-label">
                                     Nama Produk *
@@ -589,28 +701,6 @@ export default function ProdukAdmin({ admin, products }) {
                             </div>
                             <div className="form-group">
                                 <label className="form-label">
-                                    Path Gambar
-                                </label>
-                                <input
-                                    className="form-input"
-                                    value={data.gambar}
-                                    onChange={(e) =>
-                                        setData("gambar", e.target.value)
-                                    }
-                                    placeholder="/assets/img/produk.webp"
-                                />
-                                <p
-                                    style={{
-                                        fontSize: ".7rem",
-                                        color: "#aaa",
-                                        marginTop: ".25rem",
-                                    }}
-                                >
-                                    Contoh: /assets/img/vans3.webp
-                                </p>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">
                                     Ukuran (EU)
                                 </label>
                                 <div
@@ -727,7 +817,7 @@ export default function ProdukAdmin({ admin, products }) {
                             }}
                         >
                             Produk <strong>{showDelete.nama}</strong> akan
-                            dihapus permanen.
+                            dihapus permanen beserta fotonya.
                         </p>
                         <div
                             style={{

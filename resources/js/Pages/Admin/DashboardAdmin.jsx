@@ -1,4 +1,4 @@
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, router } from "@inertiajs/react";
 import { useState } from "react";
 import AdminLayout from "./AdminLayout";
 
@@ -9,6 +9,7 @@ export default function DashboardAdmin({
     produkTerlaris,
 }) {
     const [filterStatus, setFilterStatus] = useState("Semua");
+    const [hapusPesanan, setHapusPesanan] = useState(null);
 
     const formatHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
 
@@ -26,6 +27,22 @@ export default function DashboardAdmin({
         filterStatus === "Semua"
             ? pesananTerbaru
             : pesananTerbaru.filter((p) => p.status === filterStatus);
+
+    const handleUpdateStatus = (nomorPesanan, newStatus) => {
+        router.put(
+            `/admin/pesanan/${nomorPesanan}`,
+            { status: newStatus },
+            { preserveScroll: true },
+        );
+    };
+
+    const handleDeletePesanan = () => {
+        if (!hapusPesanan) return;
+        router.delete(`/admin/pesanan/${hapusPesanan.id}`, {
+            onSuccess: () => setHapusPesanan(null),
+            preserveScroll: true,
+        });
+    };
 
     const aktivitas = [
         {
@@ -72,6 +89,17 @@ export default function DashboardAdmin({
         { brand: "ADIDAS", persen: 20, color: "#f59e0b" },
         { brand: "CONVERSE", persen: 10, color: "#8b5cf6" },
     ];
+
+    const modalStyle = {
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 999,
+        padding: "1rem",
+    };
 
     return (
         <AdminLayout active="Dashboard" admin={admin}>
@@ -278,10 +306,14 @@ export default function DashboardAdmin({
                                                     gap: "4px",
                                                 }}
                                             >
-                                                <button className="btn btn-primary btn-sm">
-                                                    Detail
-                                                </button>
                                                 <select
+                                                    value={p.status}
+                                                    onChange={(e) =>
+                                                        handleUpdateStatus(
+                                                            p.id,
+                                                            e.target.value,
+                                                        )
+                                                    }
                                                     style={{
                                                         padding: "2px 4px",
                                                         border: "1px solid #e5e7eb",
@@ -291,8 +323,8 @@ export default function DashboardAdmin({
                                                         background: "#fff",
                                                     }}
                                                 >
-                                                    <option>Status</option>
                                                     {[
+                                                        "Pending",
                                                         "Diproses",
                                                         "Dikirim",
                                                         "Selesai",
@@ -303,6 +335,24 @@ export default function DashboardAdmin({
                                                         </option>
                                                     ))}
                                                 </select>
+                                                <button
+                                                    onClick={() =>
+                                                        setHapusPesanan(p)
+                                                    }
+                                                    style={{
+                                                        padding: "2px 7px",
+                                                        border: "none",
+                                                        borderRadius: 5,
+                                                        background: "#fee2e2",
+                                                        color: "#991b1b",
+                                                        fontSize: ".7rem",
+                                                        cursor: "pointer",
+                                                        fontWeight: 700,
+                                                    }}
+                                                    title="Hapus pesanan"
+                                                >
+                                                    🗑
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -498,7 +548,6 @@ export default function DashboardAdmin({
                         📊 Penjualan Brand
                     </div>
 
-                    {/* Progress brand */}
                     <div
                         style={{
                             display: "flex",
@@ -570,7 +619,6 @@ export default function DashboardAdmin({
                         ))}
                     </div>
 
-                    {/* Aksi cepat */}
                     <div
                         style={{
                             fontWeight: 700,
@@ -653,6 +701,67 @@ export default function DashboardAdmin({
                     </div>
                 </div>
             </div>
+
+            {/* Modal Konfirmasi Hapus Pesanan */}
+            {hapusPesanan && (
+                <div style={modalStyle} onClick={() => setHapusPesanan(null)}>
+                    <div
+                        style={{
+                            background: "#fff",
+                            borderRadius: 12,
+                            padding: "1.75rem",
+                            width: "100%",
+                            maxWidth: 380,
+                            boxShadow: "0 20px 60px rgba(0,0,0,.15)",
+                            textAlign: "center",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            style={{
+                                fontSize: "2.5rem",
+                                marginBottom: ".75rem",
+                            }}
+                        >
+                            🗑️
+                        </div>
+                        <h2 style={{ fontWeight: 800, marginBottom: ".5rem" }}>
+                            Hapus Pesanan?
+                        </h2>
+                        <p
+                            style={{
+                                fontSize: ".85rem",
+                                color: "#888",
+                                marginBottom: "1.5rem",
+                            }}
+                        >
+                            Pesanan <strong>{hapusPesanan.id}</strong> milik{" "}
+                            <strong>{hapusPesanan.pembeli}</strong> akan dihapus
+                            permanen.
+                        </p>
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: ".6rem",
+                                justifyContent: "center",
+                            }}
+                        >
+                            <button
+                                className="btn btn-outline"
+                                onClick={() => setHapusPesanan(null)}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                className="btn btn-danger"
+                                onClick={handleDeletePesanan}
+                            >
+                                Ya, Hapus
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }
