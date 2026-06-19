@@ -54,6 +54,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
     Route::put('/pesanan/{nomor}',        [AdminController::class, 'updatePesanan'])->name('pesanan.update');
     Route::post('/pesanan/{nomor}/resi',  [AdminController::class, 'inputResi'])->name('pesanan.resi');
     Route::get('/pesanan/{nomor}/preview',[AdminController::class, 'previewResi'])->name('pesanan.resi.preview');
+    Route::delete('/pesanan/{nomor}', [AdminController::class, 'deletePesanan'])->name('pesanan.delete');
 
     // Pembeli & Laporan
     Route::get('/pembeli',                [AdminController::class, 'pembeli'])->name('pembeli');
