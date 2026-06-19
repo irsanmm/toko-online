@@ -208,10 +208,7 @@ export default function LoginAdmin() {
                 </form>
 
                 <Link href="/" className="back-link">
-                    <i
-                        className="fa-solid fa-arrow-left"
-                        style={{ marginRight: "8px" }}
-                    ></i>
+                    <i style={{ marginRight: "8px" }}></i>
                     Kembali
                 </Link>
             </div>
