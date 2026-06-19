@@ -1,8 +1,4 @@
 <?php
-// ============================================================
-// SIMPAN DI  : routes/web.php
-// TIMPA FILE : yang lama — tambahan route profil update
-// ============================================================
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ShopController;
@@ -27,32 +23,39 @@ Route::post('/pembeli/logout',   [AuthController::class, 'logout'])->name('pembe
 
 // ===== PEMBELI (butuh login) =====
 Route::middleware('auth')->group(function () {
-    Route::get('/checkout',             [ShopController::class, 'checkout'])->name('checkout');
-    Route::post('/checkout/process',    [ShopController::class, 'prosesCheckout'])->name('checkout.process');
-    Route::get('/order-success',        [ShopController::class, 'orderSuccess'])->name('order.success');
-    Route::get('/pembeli/pesanan',      [AuthController::class, 'pesanan'])->name('pembeli.pesanan');
-    Route::post('/pesanan/selesai/{nomorPesanan}', [AuthController::class, 'selesaiPesanan'])->name('pembeli.pesanan.selesai');
-    Route::post('/pembeli/track-resi',  [AuthController::class, 'trackResi'])->name('pembeli.track.resi');
-    Route::get('/pembeli/profil',       [AuthController::class, 'profil'])->name('pembeli.profil');
-    Route::post('/pembeli/profil',      [AuthController::class, 'updateProfil'])->name('pembeli.profil.update');
+    Route::get('/checkout',              [ShopController::class, 'checkout'])->name('checkout');
+    Route::post('/checkout/process',     [ShopController::class, 'prosesCheckout'])->name('checkout.process');
+    Route::get('/order-success',         [ShopController::class, 'orderSuccess'])->name('order.success');
+    Route::get('/pembeli/pesanan',       [AuthController::class, 'pesanan'])->name('pembeli.pesanan');
+    Route::post('/pembeli/track-resi',   [AuthController::class, 'trackResi'])->name('pembeli.track.resi');
+    Route::post('/pembeli/pesanan-diterima', [AuthController::class, 'pesananDiterima'])->name('pembeli.pesanan.diterima');
+    Route::get('/pembeli/profil',        [AuthController::class, 'profil'])->name('pembeli.profil');
+    Route::post('/pembeli/profil',       [AuthController::class, 'updateProfil'])->name('pembeli.profil.update');
 });
 
-// ===== ADMIN =====
-    Route::get('/admin/login',  [AdminController::class, 'loginForm'])->name('admin.login');
-    Route::post('/admin/login', [AdminController::class, 'login'])->name('admin.login.post');
-    Route::get('/admin/logout', [AdminController::class, 'logout'])->name('admin.logout');
-    Route::post('/admin/logout',[AdminController::class, 'logout']);
+// ===== ADMIN AUTH =====
+Route::get('/admin/login',  [AdminController::class, 'loginForm'])->name('admin.login');
+Route::post('/admin/login', [AdminController::class, 'login'])->name('admin.login.post');
+Route::get('/admin/logout', [AdminController::class, 'logout'])->name('admin.logout');
+Route::post('/admin/logout',[AdminController::class, 'logout']);
 
-    Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
-    Route::get('/dashboard',             [AdminController::class, 'dashboard'])->name('dashboard');
-    Route::get('/produk',                [AdminController::class, 'produk'])->name('produk');
-    Route::post('/produk',               [AdminController::class, 'storeProduk'])->name('produk.store');
-    Route::put('/produk/{id}',           [AdminController::class, 'updateProduk'])->name('produk.update');
-    Route::delete('/produk/{id}',        [AdminController::class, 'deleteProduk'])->name('produk.delete');
-    Route::get('/pesanan',               [AdminController::class, 'pesanan'])->name('pesanan');
-    Route::put('/pesanan/{nomor}',       [AdminController::class, 'updatePesanan'])->name('pesanan.update');
-    Route::post('/pesanan/{nomor}/resi', [AdminController::class, 'inputResi'])->name('pesanan.resi');
+// ===== ADMIN (butuh login admin) =====
+Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
+    Route::get('/dashboard',              [AdminController::class, 'dashboard'])->name('dashboard');
+
+    // Produk CRUD
+    Route::get('/produk',                 [AdminController::class, 'produk'])->name('produk');
+    Route::post('/produk',                [AdminController::class, 'storeProduk'])->name('produk.store');
+    Route::put('/produk/{id}',            [AdminController::class, 'updateProduk'])->name('produk.update');
+    Route::delete('/produk/{id}',         [AdminController::class, 'deleteProduk'])->name('produk.delete');
+
+    // Pesanan
+    Route::get('/pesanan',                [AdminController::class, 'pesanan'])->name('pesanan');
+    Route::put('/pesanan/{nomor}',        [AdminController::class, 'updatePesanan'])->name('pesanan.update');
+    Route::post('/pesanan/{nomor}/resi',  [AdminController::class, 'inputResi'])->name('pesanan.resi');
     Route::get('/pesanan/{nomor}/preview',[AdminController::class, 'previewResi'])->name('pesanan.resi.preview');
-    Route::get('/pembeli',               [AdminController::class, 'pembeli'])->name('pembeli');
-    Route::get('/laporan',               [AdminController::class, 'laporan'])->name('laporan');
+
+    // Pembeli & Laporan
+    Route::get('/pembeli',                [AdminController::class, 'pembeli'])->name('pembeli');
+    Route::get('/laporan',                [AdminController::class, 'laporan'])->name('laporan');
 });

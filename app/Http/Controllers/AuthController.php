@@ -1,4 +1,8 @@
 <?php
+// ============================================================
+// SIMPAN DI  : app/Http/Controllers/AuthController.php
+// TIMPA FILE : yang lama — versi final lengkap
+// ============================================================
 
 namespace App\Http\Controllers;
 
@@ -19,12 +23,12 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $request->validate(['email' => 'required|email', 'password' => 'required']);
-        if (Auth::attempt(['email' => $request->email, 'password' => $request->password, 'role' => 'pembeli'])) {
+        $request->validate(['email'=>'required|email','password'=>'required']);
+        if (Auth::attempt(['email'=>$request->email,'password'=>$request->password,'role'=>'pembeli'])) {
             $request->session()->regenerate();
             return redirect()->route('home');
         }
-        return back()->withErrors(['email' => 'Email atau password salah.']);
+        return back()->withErrors(['email'=>'Email atau password salah.']);
     }
 
     public function registerForm()
@@ -58,9 +62,7 @@ class AuthController extends Controller
         if (!Auth::check()) return redirect()->route('pembeli.login');
 
         $pesanan = Order::where('user_id', Auth::id())
-            ->with('items')
-            ->latest()
-            ->get()
+            ->with('items')->latest()->get()
             ->map(fn($o) => [
                 'id'         => $o->nomor_pesanan,
                 'tanggal'    => $o->created_at->format('d M Y'),
@@ -76,14 +78,12 @@ class AuthController extends Controller
                 'has_resi'   => $o->hasResi(),
             ]);
 
-        // ===== NOTIFIKASI: ambil pesanan yg baru dikirim (maks 3 hari) =====
+        // Notifikasi pesanan dikirim/selesai (3 hari terakhir)
         $notifikasi = Order::where('user_id', Auth::id())
-            ->whereIn('status', ['dikirim', 'selesai'])
+            ->whereIn('status', ['dikirim','selesai'])
             ->whereNotNull('nomor_resi')
             ->where('updated_at', '>=', now()->subDays(3))
-            ->latest('updated_at')
-            ->take(5)
-            ->get()
+            ->latest('updated_at')->take(5)->get()
             ->map(fn($o) => [
                 'type'       => $o->status,
                 'judul'      => $o->status === 'dikirim'
@@ -98,183 +98,117 @@ class AuthController extends Controller
             ]);
 
         return Inertia::render('PesananSaya', [
-            'pesanan'     => $pesanan,
-            'notifikasi'  => $notifikasi,
+            'pesanan'    => $pesanan,
+            'notifikasi' => $notifikasi,
         ]);
+    }
+
+    // Pembeli konfirmasi pesanan diterima
+    public function pesananDiterima(Request $request)
+    {
+        if (!Auth::check()) return redirect()->route('pembeli.login');
+
+        $request->validate(['nomor_pesanan' => 'required|string']);
+
+        $order = Order::where('nomor_pesanan', $request->nomor_pesanan)
+            ->where('user_id', Auth::id())
+            ->where('status', 'dikirim')
+            ->firstOrFail();
+
+        $order->update(['status' => 'selesai']);
+
+        return back()->with('success', 'Pesanan dikonfirmasi diterima. Terima kasih!');
     }
 
     public function trackResi(Request $request)
     {
         if (!Auth::check()) {
-            return response()->json(['success' => false, 'message' => 'Silakan login.'], 401);
+            return response()->json(['success'=>false,'message'=>'Silakan login.'], 401);
         }
-    
-        $request->validate(['nomor_pesanan' => 'required|string']);
-    
+
+        $request->validate(['nomor_pesanan'=>'required|string']);
+
         $order = Order::where('nomor_pesanan', $request->nomor_pesanan)
-            ->where('user_id', Auth::id())
-            ->first();
-    
-        if (!$order) {
-            return response()->json(['success' => false, 'message' => 'Pesanan tidak ditemukan.']);
-        }
-        if (!$order->hasResi()) {
-            return response()->json(['success' => false, 'message' => 'Resi belum tersedia.']);
-        }
-    
+            ->where('user_id', Auth::id())->first();
+
+        if (!$order) return response()->json(['success'=>false,'message'=>'Pesanan tidak ditemukan.']);
+        if (!$order->hasResi()) return response()->json(['success'=>false,'message'=>'Resi belum tersedia.']);
+
         // Pakai cache 30 menit
         if ($order->tracking_data && $order->resi_updated_at &&
             $order->resi_updated_at->diffInMinutes(now()) < 30) {
-            return response()->json(['success' => true, 'data' => $order->tracking_data]);
+            return response()->json(['success'=>true,'data'=>$order->tracking_data]);
         }
-    
+
         $apiKey = config('services.binderbyte.key');
         if (empty($apiKey)) {
-            return response()->json(['success' => false, 'message' => 'API key belum dikonfigurasi.']);
+            return response()->json(['success'=>false,'message'=>'API key belum dikonfigurasi.']);
         }
-    
+
         try {
             $response = \Illuminate\Support\Facades\Http::timeout(15)
-                ->withHeaders(['Accept' => 'application/json'])
+                ->withHeaders(['Accept'=>'application/json'])
                 ->get('https://api.binderbyte.com/v1/track', [
                     'api_key' => $apiKey,
                     'courier' => strtolower($order->kurir),
                     'awb'     => $order->nomor_resi,
                 ]);
-    
+
             if ($response->successful()) {
                 $json = $response->json();
-    
-                // Log raw response untuk debug (cek di storage/logs/laravel.log)
-                \Illuminate\Support\Facades\Log::info('Binderbyte raw response', [
-                    'kurir' => $order->kurir,
-                    'awb'   => $order->nomor_resi,
-                    'data'  => $json,
-                ]);
-    
                 if (isset($json['status']) && $json['status'] == 200) {
                     $tracking = $this->formatTracking($json['data'], $order->kurir);
-                    $order->update([
-                        'tracking_data'   => $tracking,
-                        'resi_updated_at' => now(),
-                    ]);
-                    return response()->json(['success' => true, 'data' => $tracking]);
+                    $order->update(['tracking_data'=>$tracking,'resi_updated_at'=>now()]);
+                    return response()->json(['success'=>true,'data'=>$tracking]);
                 }
-    
-                return response()->json([
-                    'success' => false,
-                    'message' => $json['message'] ?? 'Nomor resi tidak ditemukan.',
-                ]);
+                return response()->json(['success'=>false,'message'=>$json['message']??'Resi tidak ditemukan.']);
             }
-    
-            return response()->json(['success' => false, 'message' => 'Gagal koneksi ke Binderbyte.']);
-    
+            return response()->json(['success'=>false,'message'=>'Gagal koneksi ke Binderbyte.']);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('TrackResi error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+            return response()->json(['success'=>false,'message'=>$e->getMessage()]);
         }
     }
 
     private function formatTracking(array $data, string $kurir): array
     {
         $kurirLabel = [
-            'jne'      => 'JNE',
-            'jnt'      => 'J&T Express',
-            'sicepat'  => 'SiCepat',
-            'anteraja' => 'AnterAja',
-            'pos'      => 'Pos Indonesia',
-            'tiki'     => 'TIKI',
-            'ninja'    => 'Ninja Express',
-            'lion'     => 'Lion Parcel',
-            'idexpress'=> 'ID Express',
-            'sap'      => 'SAP Express',
+            'jne'=>'JNE','jnt'=>'J&T Express','sicepat'=>'SiCepat',
+            'anteraja'=>'AnterAja','pos'=>'Pos Indonesia','tiki'=>'TIKI',
+            'ninja'=>'Ninja Express','lion'=>'Lion Parcel',
         ];
-    
+
         $summary = $data['summary'] ?? [];
-    
-        // Binderbyte J&T pakai 'history', JNE bisa 'history' atau 'manifest'
-        $history = $data['history']
-            ?? $data['manifest']
-            ?? $data['tracking']
-            ?? [];
-    
-        // Format riwayat
-        // Dari response J&T: {"date":"...","desc":"...","location":""}
-        // Dari response JNE: {"date":"...","description":"...","location":"..."}
+        $history = $data['history'] ?? $data['manifest'] ?? [];
+
         $riwayat = array_map(function ($h) {
-            // Deskripsi: J&T pakai 'desc', JNE pakai 'description'
-            $deskripsi = $h['desc']
-                ?? $h['description']
-                ?? $h['note']
-                ?? $h['status']
-                ?? $h['keterangan']
-                ?? $h['message']
-                ?? '';
-    
-            // Lokasi: semua kurir pakai 'location'
-            $lokasi = $h['location']
-                ?? $h['city']
-                ?? $h['cabang']
-                ?? $h['pos']
-                ?? '';
-    
-            // Tanggal
-            $tanggal = $h['date']
-                ?? $h['datetime']
-                ?? $h['timestamp']
-                ?? $h['time']
-                ?? '';
-    
-            return [
-                'tanggal'   => $tanggal,
-                'deskripsi' => $deskripsi,
-                'lokasi'    => $lokasi,
-            ];
+            $deskripsi = $h['desc'] ?? $h['description'] ?? $h['note'] ?? $h['status'] ?? $h['keterangan'] ?? '';
+            $lokasi    = $h['location'] ?? $h['city'] ?? $h['cabang'] ?? '';
+            $tanggal   = $h['date'] ?? $h['datetime'] ?? $h['timestamp'] ?? '';
+            return ['tanggal'=>$tanggal,'deskripsi'=>$deskripsi,'lokasi'=>$lokasi];
         }, $history);
-    
-        // Status terakhir dari summary
-        // J&T pakai 'desc' di summary, JNE pakai 'description'
-        $statusTerakhir = $summary['desc']
-            ?? $summary['description']
-            ?? ($riwayat[0]['deskripsi'] ?? '');
-    
+
+        $statusTerakhir = $summary['desc'] ?? $summary['description'] ?? ($riwayat[0]['deskripsi'] ?? '');
+
         return [
             'kurir'       => $kurirLabel[$kurir] ?? strtoupper($kurir),
             'kode_kurir'  => $kurir,
-            'nomor_resi'  => $summary['awb']         ?? $summary['waybill']      ?? '',
-            'status'      => $summary['status']       ?? '',
-            'pengirim'    => $summary['shipper']      ?? $summary['sender']       ?? '-',
-            'penerima'    => $summary['receiver']     ?? $summary['consignee']    ?? '-',
-            'asal'        => $summary['origin']       ?? $summary['from']         ?? '-',
-            'tujuan'      => $summary['destination']  ?? $summary['to']           ?? '-',
-            'berat'       => $summary['weight']       ?? '-',
-            'layanan'     => $summary['service']      ?? '-',
+            'nomor_resi'  => $summary['awb']        ?? '',
+            'status'      => $summary['status']      ?? '',
+            'pengirim'    => $summary['shipper']     ?? $summary['sender']    ?? '-',
+            'penerima'    => $summary['receiver']    ?? $summary['consignee'] ?? '-',
+            'asal'        => $summary['origin']      ?? '-',
+            'tujuan'      => $summary['destination'] ?? '-',
+            'berat'       => $summary['weight']      ?? '-',
+            'layanan'     => $summary['service']     ?? '-',
             'terakhir_di' => $statusTerakhir,
             'riwayat'     => $riwayat,
         ];
     }
 
-    public function selesaiPesanan($nomorPesanan)
-    {
-        // Cari pesanan berdasarkan nomor pesanan dan user_id pembeli
-        $order = Order::where('nomor_pesanan', $nomorPesanan)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
-
-        // Validasi: Pembeli hanya bisa menyelesaikan pesanan jika statusnya sudah 'dikirim'
-        if ($order->status !== 'dikirim') {
-            return back()->withErrors(['message' => 'Hanya pesanan yang sedang dikirim yang dapat dikonfirmasi selesai.']);
-        }
-
-        $order->update(['status' => 'selesai']);
-
-        return back()->with('success', 'Pesanan telah diterima. Terima kasih!');
-    }
-
     public function profil()
     {
         if (!Auth::check()) return redirect()->route('pembeli.login');
-        return Inertia::render('ProfilPembeli', ['pembeli' => Auth::user()]);
+        return Inertia::render('ProfilPembeli', ['pembeli'=>Auth::user()]);
     }
 
     public function updateProfil(Request $request)
@@ -290,7 +224,7 @@ class AuthController extends Controller
             'telepon' => $request->telepon,
             'alamat'  => $request->alamat,
         ]);
-        return back()->with('success', 'Profil berhasil diperbarui.');
+        return back()->with('success', 'Profil berhasil diperbarui!');
     }
 
     public function logout(Request $request)
