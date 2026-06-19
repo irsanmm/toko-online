@@ -86,7 +86,7 @@ export default function PesananSaya({
                             fontSize: ".875rem",
                         }}
                     >
-                        Pantau status semua pesananmu di sini
+                        Pantau status semua pesananmu
                     </p>
                 </div>
 
@@ -481,7 +481,7 @@ export default function PesananSaya({
                                             >
                                                 {loadingId === p.id
                                                     ? "⏳ Memproses..."
-                                                    : "✅ Pesanan Diterima"}
+                                                    : "Pesanan Diterima"}
                                             </button>
                                         )}
 
@@ -499,7 +499,7 @@ export default function PesananSaya({
                                                     cursor: "pointer",
                                                 }}
                                             >
-                                                ⭐ Beri Ulasan
+                                                Beri Ulasan
                                             </button>
                                         )}
                                     </div>
