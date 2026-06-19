@@ -237,7 +237,7 @@ export default function ProfilPembeli({ pembeli }) {
                                         marginBottom: ".35rem",
                                     }}
                                 >
-                                    No. Telepon / WhatsApp
+                                    No. Telepon
                                 </label>
                                 <input
                                     style={inputStyle}
