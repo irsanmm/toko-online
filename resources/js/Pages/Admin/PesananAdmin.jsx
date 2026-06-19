@@ -17,6 +17,7 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
     const [detail, setDetail] = useState(null);
     const [modalResi, setModalResi] = useState(null);
     const [loadingId, setLoadingId] = useState(null);
+    const [hapusPesanan, setHapusPesanan] = useState(null);
 
     const fmtHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
     const statusList = [
@@ -36,7 +37,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
         return matchSearch && matchFilter;
     });
 
-    // Update status langsung
     const handleUpdateStatus = (nomorPesanan, newStatus) => {
         setLoadingId(nomorPesanan);
         router.put(
@@ -47,6 +47,17 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                 preserveScroll: true,
             },
         );
+    };
+
+    const handleDeletePesanan = () => {
+        if (!hapusPesanan) return;
+        router.delete(`/admin/pesanan/${hapusPesanan.id}`, {
+            onSuccess: () => {
+                setHapusPesanan(null);
+                setDetail(null);
+            },
+            preserveScroll: true,
+        });
     };
 
     const modalStyle = {
@@ -64,7 +75,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
         <AdminLayout active="Pesanan" admin={admin}>
             <Head title="Pesanan | Admin AMENG STORE" />
 
-            {/* Header */}
             <div
                 style={{
                     display: "flex",
@@ -92,7 +102,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                 <button className="btn btn-success">📥 Export Excel</button>
             </div>
 
-            {/* Stat Cards */}
             <div
                 style={{
                     display: "grid",
@@ -287,7 +296,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                 flexWrap: "wrap",
                                             }}
                                         >
-                                            {/* Tombol Detail */}
                                             <button
                                                 className="btn btn-outline btn-sm"
                                                 onClick={() => setDetail(p)}
@@ -295,7 +303,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                 Detail
                                             </button>
 
-                                            {/* Dropdown ubah status */}
                                             <select
                                                 value={p.status}
                                                 onChange={(e) =>
@@ -327,7 +334,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                 ))}
                                             </select>
 
-                                            {/* Tombol Input Resi — muncul saat status Diproses atau Dikirim */}
                                             {(p.status === "Diproses" ||
                                                 p.status === "Dikirim") && (
                                                 <button
@@ -347,6 +353,22 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                         : "Input Resi"}
                                                 </button>
                                             )}
+
+                                            {/* Tombol Hapus */}
+                                            <button
+                                                className="btn btn-sm"
+                                                style={{
+                                                    background: "#fee2e2",
+                                                    color: "#991b1b",
+                                                    border: "none",
+                                                }}
+                                                onClick={() =>
+                                                    setHapusPesanan(p)
+                                                }
+                                                title="Hapus pesanan"
+                                            >
+                                                🗑
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -465,7 +487,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                             ))}
                         </div>
 
-                        {/* Tombol aksi di dalam detail */}
                         <div style={{ display: "flex", gap: ".6rem" }}>
                             {(detail.status === "Diproses" ||
                                 detail.status === "Dikirim") && (
@@ -484,11 +505,79 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                 </button>
                             )}
                             <button
+                                className="btn btn-danger"
+                                style={{ flex: 1 }}
+                                onClick={() => setHapusPesanan(detail)}
+                            >
+                                🗑 Hapus
+                            </button>
+                            <button
                                 className="btn btn-outline"
                                 style={{ flex: 1 }}
                                 onClick={() => setDetail(null)}
                             >
                                 Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Konfirmasi Hapus */}
+            {hapusPesanan && (
+                <div style={modalStyle} onClick={() => setHapusPesanan(null)}>
+                    <div
+                        style={{
+                            background: "#fff",
+                            borderRadius: 12,
+                            padding: "1.75rem",
+                            width: "100%",
+                            maxWidth: 380,
+                            boxShadow: "0 20px 60px rgba(0,0,0,.15)",
+                            textAlign: "center",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            style={{
+                                fontSize: "2.5rem",
+                                marginBottom: ".75rem",
+                            }}
+                        >
+                            🗑️
+                        </div>
+                        <h2 style={{ fontWeight: 800, marginBottom: ".5rem" }}>
+                            Hapus Pesanan?
+                        </h2>
+                        <p
+                            style={{
+                                fontSize: ".85rem",
+                                color: "#888",
+                                marginBottom: "1.5rem",
+                            }}
+                        >
+                            Pesanan <strong>{hapusPesanan.id}</strong> milik{" "}
+                            <strong>{hapusPesanan.pembeli}</strong> akan dihapus
+                            permanen.
+                        </p>
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: ".6rem",
+                                justifyContent: "center",
+                            }}
+                        >
+                            <button
+                                className="btn btn-outline"
+                                onClick={() => setHapusPesanan(null)}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                className="btn btn-danger"
+                                onClick={handleDeletePesanan}
+                            >
+                                Ya, Hapus
                             </button>
                         </div>
                     </div>
