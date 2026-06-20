@@ -176,7 +176,7 @@ class AdminController extends Controller
     
         return back()->with('success', 'Produk berhasil diperbarui.');
     }
-
+    
     public function deleteProduk($id)
     {
         if ($r = $this->checkAdmin()) return $r;
@@ -202,6 +202,16 @@ class AdminController extends Controller
         $order->delete(); // order_items ikut terhapus otomatis (FK cascade)
     
         return back()->with('success', "Pesanan {$nomorPesanan} berhasil dihapus.");
+    }
+
+    public function deletePembeli($id)
+    {
+        if ($r = $this->checkAdmin()) return $r;
+    
+        $user = User::where('role', 'pembeli')->findOrFail($id);
+        $user->delete(); // pesanan milik pembeli ini ikut terhapus otomatis (FK cascade)
+    
+        return back()->with('success', 'Pembeli berhasil dihapus.');
     }
 
     // ===== PESANAN =====
@@ -299,7 +309,10 @@ class AdminController extends Controller
     public function pembeli()
     {
         if ($r = $this->checkAdmin()) return $r;
-        $pembeli = User::where('role','pembeli')->withCount('orders')->latest()->get()
+    
+        $pembeli = User::where('role', 'pembeli')
+            ->withCount('orders')
+            ->latest()->get()
             ->map(fn($u) => [
                 'id'           => $u->id,
                 'nama'         => $u->name,
@@ -307,10 +320,11 @@ class AdminController extends Controller
                 'telepon'      => $u->telepon ?? '-',
                 'alamat'       => $u->alamat ?? '-',
                 'totalPesanan' => $u->orders_count,
-                'totalBelanja' => Order::where('user_id',$u->id)->sum('total_harga'),
+                'totalBelanja' => Order::where('user_id', $u->id)->where('status', 'selesai')->sum('total_harga'),
                 'bergabung'    => $u->created_at->format('d M Y'),
                 'status'       => 'Aktif',
             ]);
+    
         return Inertia::render('Admin/PembeliAdmin', [
             'admin'   => Auth::user(),
             'pembeli' => $pembeli,
@@ -321,24 +335,62 @@ class AdminController extends Controller
     public function laporan()
     {
         if ($r = $this->checkAdmin()) return $r;
-
-        // Data laporan dari database
-        $totalPendapatan = Order::where('status','selesai')->sum('total_harga');
+    
+        $totalPendapatan = Order::where('status', 'selesai')->sum('total_harga');
         $totalPesanan    = Order::count();
-        $pesananSelesai  = Order::where('status','selesai')->count();
-
-        // Penjualan per brand
-        $penjualanBrand = \App\Models\OrderItem::join('products','products.id','=','order_items.product_id')
+        $pesananSelesai  = Order::where('status', 'selesai')->count();
+        $totalPembeli    = User::where('role', 'pembeli')->count();
+    
+        // Penjualan per brand (berdasarkan qty terjual)
+        $penjualanBrandRaw = \App\Models\OrderItem::join('products', 'products.id', '=', 'order_items.product_id')
             ->selectRaw('products.brand, SUM(order_items.qty) as total_terjual')
             ->groupBy('products.brand')
+            ->orderByDesc('total_terjual')
             ->get();
-
+    
+        $totalTerjualSemua = $penjualanBrandRaw->sum('total_terjual') ?: 1;
+        $penjualanBrand = $penjualanBrandRaw->map(fn($b) => [
+            'brand'   => $b->brand,
+            'terjual' => $b->total_terjual,
+            'persen'  => round(($b->total_terjual / $totalTerjualSemua) * 100),
+        ]);
+    
+        // Daftar transaksi terbaru — lengkap dengan nama pembeli asli
+        $transaksi = Order::with(['user', 'items'])
+            ->latest()->take(15)->get()
+            ->map(fn($o) => [
+                'id'      => $o->nomor_pesanan,
+                'pembeli' => $o->user->name ?? '-',
+                'produk'  => $o->items->pluck('nama_produk')->implode(', '),
+                'qty'     => $o->items->sum('qty'),
+                'total'   => $o->total_harga,
+                'status'  => ucfirst($o->status),
+                'tanggal' => $o->created_at->format('d M Y'),
+            ]);
+    
+        // Top 5 pembeli berdasarkan total belanja (pesanan selesai)
+        $topPembeli = User::where('role', 'pembeli')
+            ->withSum(['orders' => fn($q) => $q->where('status', 'selesai')], 'total_harga')
+            ->withCount(['orders' => fn($q) => $q->where('status', 'selesai')])
+            ->orderByDesc('orders_sum_total_harga')
+            ->take(5)->get()
+            ->filter(fn($u) => $u->orders_sum_total_harga > 0)
+            ->values()
+            ->map(fn($u) => [
+                'nama'         => $u->name,
+                'totalBelanja' => $u->orders_sum_total_harga ?? 0,
+                'totalPesanan' => $u->orders_count ?? 0,
+            ]);
+    
         return Inertia::render('Admin/LaporanAdmin', [
             'admin'           => Auth::user(),
             'totalPendapatan' => $totalPendapatan,
             'totalPesanan'    => $totalPesanan,
             'pesananSelesai'  => $pesananSelesai,
+            'totalPembeli'    => $totalPembeli,
             'penjualanBrand'  => $penjualanBrand,
+            'transaksi'       => $transaksi,
+            'topPembeli'      => $topPembeli,
         ]);
     }
 }
