@@ -1,103 +1,29 @@
-import { Head } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import { useState } from "react";
 import AdminLayout from "./AdminLayout";
 
-const pembeliData = [
-    {
-        id: 1,
-        nama: "Budi Santoso",
-        email: "budi@gmail.com",
-        telepon: "0812-3456-7890",
-        alamat: "Jl. Merdeka No.10, Tasikmalaya",
-        totalPesanan: 5,
-        totalBelanja: 4500000,
-        bergabung: "10 Jan 2025",
-        status: "Aktif",
-    },
-    {
-        id: 2,
-        nama: "Siti Rahayu",
-        email: "siti@gmail.com",
-        telepon: "0898-7654-3210",
-        alamat: "Jl. Sudirman No.5, Bandung",
-        totalPesanan: 3,
-        totalBelanja: 2850000,
-        bergabung: "15 Feb 2025",
-        status: "Aktif",
-    },
-    {
-        id: 3,
-        nama: "Ahmad Fauzi",
-        email: "ahmad@gmail.com",
-        telepon: "0856-1234-5678",
-        alamat: "Jl. Gatot Subroto No.3, Jakarta",
-        totalPesanan: 7,
-        totalBelanja: 8750000,
-        bergabung: "3 Mar 2025",
-        status: "Aktif",
-    },
-    {
-        id: 4,
-        nama: "Dewi Lestari",
-        email: "dewi@gmail.com",
-        telepon: "0877-8765-4321",
-        alamat: "Jl. Pahlawan No.8, Surabaya",
-        totalPesanan: 2,
-        totalBelanja: 1500000,
-        bergabung: "20 Mar 2025",
-        status: "Aktif",
-    },
-    {
-        id: 5,
-        nama: "Rizki Pratama",
-        email: "rizki@gmail.com",
-        telepon: "0821-9876-5432",
-        alamat: "Jl. Diponegoro No.2, Yogyakarta",
-        totalPesanan: 4,
-        totalBelanja: 3600000,
-        bergabung: "1 Apr 2025",
-        status: "Aktif",
-    },
-    {
-        id: 6,
-        nama: "Maya Sari",
-        email: "maya@gmail.com",
-        telepon: "0895-5432-1098",
-        alamat: "Jl. Ahmad Yani No.15, Semarang",
-        totalPesanan: 1,
-        totalBelanja: 1450000,
-        bergabung: "5 Apr 2025",
-        status: "Nonaktif",
-    },
-];
-
-export default function PembeliAdmin({ admin }) {
-    const [pembeli, setPembeli] = useState(pembeliData);
+export default function PembeliAdmin({ admin, pembeli }) {
     const [search, setSearch] = useState("");
     const [detail, setDetail] = useState(null);
-    const [filter, setFilter] = useState("Semua");
+    const [hapusUser, setHapusUser] = useState(null);
 
     const fmtHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
 
-    const filtered = pembeli.filter((p) => {
-        const matchSearch =
+    const filtered = (pembeli || []).filter(
+        (p) =>
             p.nama.toLowerCase().includes(search.toLowerCase()) ||
-            p.email.includes(search);
-        const matchFilter = filter === "Semua" || p.status === filter;
-        return matchSearch && matchFilter;
-    });
+            p.email.toLowerCase().includes(search.toLowerCase()),
+    );
 
-    const toggleStatus = (id) => {
-        setPembeli((prev) =>
-            prev.map((p) =>
-                p.id === id
-                    ? {
-                          ...p,
-                          status: p.status === "Aktif" ? "Nonaktif" : "Aktif",
-                      }
-                    : p,
-            ),
-        );
+    const handleDelete = () => {
+        if (!hapusUser) return;
+        router.delete(`/admin/pembeli/${hapusUser.id}`, {
+            onSuccess: () => {
+                setHapusUser(null);
+                setDetail(null);
+            },
+            preserveScroll: true,
+        });
     };
 
     const modalStyle = {
@@ -109,19 +35,6 @@ export default function PembeliAdmin({ admin }) {
         justifyContent: "center",
         zIndex: 999,
         padding: "1rem",
-    };
-
-    // Avatar warna acak berdasarkan nama
-    const avatarColor = (nama) => {
-        const colors = [
-            "#3b82f6",
-            "#22c55e",
-            "#f59e0b",
-            "#8b5cf6",
-            "#ec4899",
-            "#ef4444",
-        ];
-        return colors[nama.charCodeAt(0) % colors.length];
     };
 
     return (
@@ -149,37 +62,41 @@ export default function PembeliAdmin({ admin }) {
                             marginTop: "2px",
                         }}
                     >
-                        {pembeli.length} pembeli terdaftar
+                        {(pembeli || []).length} pembeli terdaftar
                     </p>
                 </div>
-                <button className="btn btn-success">📥 Export</button>
             </div>
 
             {/* Stat mini */}
             <div
                 style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
+                    gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
                     gap: ".75rem",
                     marginBottom: "1.1rem",
                 }}
             >
                 {[
-                    { label: "Total Pembeli", value: pembeli.length },
+                    { label: "Total Pembeli", value: (pembeli || []).length },
                     {
-                        label: "Aktif",
-                        value: pembeli.filter((p) => p.status === "Aktif")
-                            .length,
-                    },
-                    {
-                        label: "Nonaktif",
-                        value: pembeli.filter((p) => p.status === "Nonaktif")
+                        label: "Pernah Belanja",
+                        value: (pembeli || []).filter((p) => p.totalPesanan > 0)
                             .length,
                     },
                     {
                         label: "Total Transaksi",
+                        value: (pembeli || []).reduce(
+                            (s, p) => s + p.totalPesanan,
+                            0,
+                        ),
+                    },
+                    {
+                        label: "Total Pendapatan",
                         value: fmtHarga(
-                            pembeli.reduce((s, p) => s + p.totalBelanja, 0),
+                            (pembeli || []).reduce(
+                                (s, p) => s + p.totalBelanja,
+                                0,
+                            ),
                         ),
                     },
                 ].map((s, i) => (
@@ -189,12 +106,12 @@ export default function PembeliAdmin({ admin }) {
                             background: "#fff",
                             borderRadius: 9,
                             border: "1px solid #e5e7eb",
-                            padding: ".85rem 1rem",
+                            padding: ".9rem 1rem",
                         }}
                     >
                         <div
                             style={{
-                                fontSize: ".68rem",
+                                fontSize: ".7rem",
                                 color: "#888",
                                 marginBottom: ".2rem",
                             }}
@@ -203,7 +120,7 @@ export default function PembeliAdmin({ admin }) {
                         </div>
                         <div
                             style={{
-                                fontSize: i === 3 ? "1rem" : "1.4rem",
+                                fontSize: "1.25rem",
                                 fontWeight: 800,
                                 color: "#111",
                             }}
@@ -218,47 +135,25 @@ export default function PembeliAdmin({ admin }) {
                 <div className="card-header">
                     <input
                         className="form-input"
-                        style={{ maxWidth: 220, padding: ".45rem .85rem" }}
+                        style={{ maxWidth: 260, padding: ".45rem .85rem" }}
                         placeholder="🔍 Cari nama / email..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
-                    <div style={{ display: "flex", gap: ".35rem" }}>
-                        {["Semua", "Aktif", "Nonaktif"].map((f) => (
-                            <button
-                                key={f}
-                                onClick={() => setFilter(f)}
-                                style={{
-                                    padding: "3px 10px",
-                                    borderRadius: 999,
-                                    fontSize: ".68rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    border: "1.5px solid",
-                                    borderColor:
-                                        filter === f ? "#3b82f6" : "#e5e7eb",
-                                    background:
-                                        filter === f ? "#3b82f6" : "#fff",
-                                    color: filter === f ? "#fff" : "#555",
-                                }}
-                            >
-                                {f}
-                            </button>
-                        ))}
-                    </div>
                 </div>
+
                 <div className="tbl-wrap">
                     <table>
                         <thead>
                             <tr>
                                 {[
                                     "#",
-                                    "Pembeli",
+                                    "Nama",
+                                    "Email",
                                     "Telepon",
-                                    "Pesanan",
+                                    "Total Pesanan",
                                     "Total Belanja",
                                     "Bergabung",
-                                    "Status",
                                     "Aksi",
                                 ].map((h) => (
                                     <th key={h}>{h}</th>
@@ -276,52 +171,16 @@ export default function PembeliAdmin({ admin }) {
                                     >
                                         {i + 1}
                                     </td>
-                                    <td>
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: ".6rem",
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    width: 32,
-                                                    height: 32,
-                                                    borderRadius: "50%",
-                                                    background: avatarColor(
-                                                        p.nama,
-                                                    ),
-                                                    color: "#fff",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    fontWeight: 800,
-                                                    fontSize: ".78rem",
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                {p.nama.charAt(0)}
-                                            </div>
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontWeight: 600,
-                                                        fontSize: ".8rem",
-                                                    }}
-                                                >
-                                                    {p.nama}
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        fontSize: ".68rem",
-                                                        color: "#aaa",
-                                                    }}
-                                                >
-                                                    {p.email}
-                                                </div>
-                                            </div>
-                                        </div>
+                                    <td style={{ fontWeight: 600 }}>
+                                        {p.nama}
+                                    </td>
+                                    <td
+                                        style={{
+                                            fontSize: ".78rem",
+                                            color: "#555",
+                                        }}
+                                    >
+                                        {p.email}
                                     </td>
                                     <td style={{ fontSize: ".78rem" }}>
                                         {p.telepon}
@@ -346,23 +205,6 @@ export default function PembeliAdmin({ admin }) {
                                         {p.bergabung}
                                     </td>
                                     <td>
-                                        <span
-                                            className="badge"
-                                            style={{
-                                                background:
-                                                    p.status === "Aktif"
-                                                        ? "#dcfce7"
-                                                        : "#f3f4f6",
-                                                color:
-                                                    p.status === "Aktif"
-                                                        ? "#166534"
-                                                        : "#888",
-                                            }}
-                                        >
-                                            {p.status}
-                                        </span>
-                                    </td>
-                                    <td>
                                         <div
                                             style={{
                                                 display: "flex",
@@ -376,25 +218,10 @@ export default function PembeliAdmin({ admin }) {
                                                 Detail
                                             </button>
                                             <button
-                                                className="btn btn-sm"
-                                                style={{
-                                                    background:
-                                                        p.status === "Aktif"
-                                                            ? "#fee2e2"
-                                                            : "#dcfce7",
-                                                    color:
-                                                        p.status === "Aktif"
-                                                            ? "#991b1b"
-                                                            : "#166534",
-                                                    border: "none",
-                                                }}
-                                                onClick={() =>
-                                                    toggleStatus(p.id)
-                                                }
+                                                className="btn btn-danger btn-sm"
+                                                onClick={() => setHapusUser(p)}
                                             >
-                                                {p.status === "Aktif"
-                                                    ? "Nonaktifkan"
-                                                    : "Aktifkan"}
+                                                🗑
                                             </button>
                                         </div>
                                     </td>
@@ -411,11 +238,12 @@ export default function PembeliAdmin({ admin }) {
                         color: "#888",
                     }}
                 >
-                    Menampilkan {filtered.length} dari {pembeli.length} pembeli
+                    Menampilkan {filtered.length} dari {(pembeli || []).length}{" "}
+                    pembeli
                 </div>
             </div>
 
-            {/* Modal Detail Pembeli */}
+            {/* Modal Detail */}
             {detail && (
                 <div style={modalStyle} onClick={() => setDetail(null)}>
                     <div
@@ -424,7 +252,7 @@ export default function PembeliAdmin({ admin }) {
                             borderRadius: 12,
                             padding: "1.75rem",
                             width: "100%",
-                            maxWidth: 460,
+                            maxWidth: 440,
                             boxShadow: "0 20px 60px rgba(0,0,0,.15)",
                         }}
                         onClick={(e) => e.stopPropagation()}
@@ -453,37 +281,6 @@ export default function PembeliAdmin({ admin }) {
                                 ✕
                             </button>
                         </div>
-                        {/* Avatar */}
-                        <div
-                            style={{
-                                textAlign: "center",
-                                marginBottom: "1.25rem",
-                            }}
-                        >
-                            <div
-                                style={{
-                                    width: 60,
-                                    height: 60,
-                                    borderRadius: "50%",
-                                    background: avatarColor(detail.nama),
-                                    color: "#fff",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontWeight: 800,
-                                    fontSize: "1.4rem",
-                                    margin: "0 auto .5rem",
-                                }}
-                            >
-                                {detail.nama.charAt(0)}
-                            </div>
-                            <div style={{ fontWeight: 800, fontSize: "1rem" }}>
-                                {detail.nama}
-                            </div>
-                            <div style={{ fontSize: ".78rem", color: "#888" }}>
-                                {detail.email}
-                            </div>
-                        </div>
                         <div
                             style={{
                                 display: "grid",
@@ -492,9 +289,10 @@ export default function PembeliAdmin({ admin }) {
                             }}
                         >
                             {[
+                                ["Nama", detail.nama],
+                                ["Email", detail.email],
                                 ["Telepon", detail.telepon],
                                 ["Alamat", detail.alamat],
-                                ["Bergabung", detail.bergabung],
                                 [
                                     "Total Pesanan",
                                     detail.totalPesanan + " pesanan",
@@ -503,7 +301,7 @@ export default function PembeliAdmin({ admin }) {
                                     "Total Belanja",
                                     fmtHarga(detail.totalBelanja),
                                 ],
-                                ["Status", detail.status],
+                                ["Bergabung", detail.bergabung],
                             ].map(([k, v]) => (
                                 <div
                                     key={k}
@@ -537,13 +335,82 @@ export default function PembeliAdmin({ admin }) {
                                 </div>
                             ))}
                         </div>
-                        <button
-                            className="btn btn-primary"
-                            style={{ width: "100%" }}
-                            onClick={() => setDetail(null)}
+                        <div style={{ display: "flex", gap: ".6rem" }}>
+                            <button
+                                className="btn btn-danger"
+                                style={{ flex: 1 }}
+                                onClick={() => setHapusUser(detail)}
+                            >
+                                🗑 Hapus Pembeli
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                style={{ flex: 1 }}
+                                onClick={() => setDetail(null)}
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Konfirmasi Hapus */}
+            {hapusUser && (
+                <div style={modalStyle} onClick={() => setHapusUser(null)}>
+                    <div
+                        style={{
+                            background: "#fff",
+                            borderRadius: 12,
+                            padding: "1.75rem",
+                            width: "100%",
+                            maxWidth: 380,
+                            boxShadow: "0 20px 60px rgba(0,0,0,.15)",
+                            textAlign: "center",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            style={{
+                                fontSize: "2.5rem",
+                                marginBottom: ".75rem",
+                            }}
                         >
-                            Tutup
-                        </button>
+                            🗑️
+                        </div>
+                        <h2 style={{ fontWeight: 800, marginBottom: ".5rem" }}>
+                            Hapus Pembeli?
+                        </h2>
+                        <p
+                            style={{
+                                fontSize: ".85rem",
+                                color: "#888",
+                                marginBottom: "1.5rem",
+                            }}
+                        >
+                            Akun <strong>{hapusUser.nama}</strong> beserta
+                            seluruh riwayat pesanannya akan dihapus permanen.
+                        </p>
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: ".6rem",
+                                justifyContent: "center",
+                            }}
+                        >
+                            <button
+                                className="btn btn-outline"
+                                onClick={() => setHapusUser(null)}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                className="btn btn-danger"
+                                onClick={handleDelete}
+                            >
+                                Ya, Hapus
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
