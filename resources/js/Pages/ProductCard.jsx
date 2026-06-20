@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link, router } from "@inertiajs/react";
 
+// Helper: gambar upload baru pakai path relatif (produk/xxx.jpg) → prefix /storage/
+// Gambar lama dari seeder pakai path absolut (/assets/img/xxx.webp) → biarkan apa adanya
+const imgSrc = (g) => {
+    if (!g) return "https://placehold.co/300x180?text=No+Image";
+    return g.startsWith("/") ? g : `/storage/${g}`;
+};
+
 export default function ProductCard({ produk }) {
     const [ukuran, setUkuran] = useState("");
     const [qty, setQty] = useState(1);
@@ -20,7 +27,13 @@ export default function ProductCard({ produk }) {
         if (existing) {
             existing.qty += qty;
         } else {
-            cart.push({ ...produk, ukuran, qty });
+            // Simpan gambar yang SUDAH diproses imgSrc supaya tampil benar di Keranjang/Checkout
+            cart.push({
+                ...produk,
+                gambar: imgSrc(produk.gambar),
+                ukuran,
+                qty,
+            });
         }
         localStorage.setItem("amengCart", JSON.stringify(cart));
         setAdded(true);
@@ -28,7 +41,6 @@ export default function ProductCard({ produk }) {
         window.dispatchEvent(new Event("cartUpdated"));
     };
 
-    // Tambah ke keranjang lalu langsung pindah ke halaman keranjang
     const handleBeliSekarang = () => {
         if (!ukuran) {
             alert("Pilih ukuran terlebih dahulu!");
@@ -41,7 +53,12 @@ export default function ProductCard({ produk }) {
         if (existing) {
             existing.qty += qty;
         } else {
-            cart.push({ ...produk, ukuran, qty });
+            cart.push({
+                ...produk,
+                gambar: imgSrc(produk.gambar),
+                ukuran,
+                qty,
+            });
         }
         localStorage.setItem("amengCart", JSON.stringify(cart));
         window.dispatchEvent(new Event("cartUpdated"));
@@ -96,7 +113,7 @@ export default function ProductCard({ produk }) {
                     }}
                 >
                     <img
-                        src={produk.gambar}
+                        src={imgSrc(produk.gambar)}
                         alt={produk.nama}
                         style={{
                             width: "100%",
@@ -133,7 +150,6 @@ export default function ProductCard({ produk }) {
                     {produk.brand}
                 </div>
 
-                {/* Nama produk — klik juga pindah ke detail */}
                 <Link href={`/produk/${produk.id}`} style={{ color: "#111" }}>
                     <div
                         style={{
@@ -158,7 +174,6 @@ export default function ProductCard({ produk }) {
                     {formatHarga(produk.harga)}
                 </div>
 
-                {/* Pilih Ukuran */}
                 <select
                     value={ukuran}
                     onChange={(e) => setUkuran(e.target.value)}
@@ -183,7 +198,6 @@ export default function ProductCard({ produk }) {
                     )}
                 </select>
 
-                {/* Qty Control */}
                 <div
                     style={{
                         display: "flex",
@@ -233,7 +247,6 @@ export default function ProductCard({ produk }) {
                     </button>
                 </div>
 
-                {/* Tombol Tambah ke Keranjang */}
                 <button
                     onClick={handleAddToCart}
                     style={{
@@ -253,7 +266,6 @@ export default function ProductCard({ produk }) {
                     {added ? "✅ Ditambahkan!" : "🛒 Tambah ke Keranjang"}
                 </button>
 
-                {/* Tombol Beli Sekarang — langsung ke keranjang */}
                 <button
                     onClick={handleBeliSekarang}
                     style={{
