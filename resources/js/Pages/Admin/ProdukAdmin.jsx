@@ -2,7 +2,6 @@ import { Head, router, useForm } from "@inertiajs/react";
 import { useState } from "react";
 import AdminLayout from "./AdminLayout";
 
-// Helper untuk path gambar — support gambar upload baru (/storage/...) dan path lama (/assets/...)
 const imgSrc = (g) => {
     if (!g) return null;
     return g.startsWith("/") ? g : `/storage/${g}`;
@@ -25,6 +24,7 @@ export default function ProdukAdmin({ admin, products }) {
         ukuran: [],
         status: "aktif",
         gambar: null,
+        is_featured: false,
     });
 
     const brands = ["Semua", "VANS", "NIKE", "ADIDAS", "CONVERSE"];
@@ -45,7 +45,7 @@ export default function ProdukAdmin({ admin, products }) {
 
     const openEdit = (p) => {
         setEditData(p);
-        setPreviewUrl(null); // tampilkan gambar lama dari produk, bukan preview baru
+        setPreviewUrl(null);
         setData({
             nama: p.nama,
             brand: p.brand,
@@ -54,7 +54,8 @@ export default function ProdukAdmin({ admin, products }) {
             stok: p.stok,
             ukuran: Array.isArray(p.ukuran) ? p.ukuran : [],
             status: p.status,
-            gambar: null, // gambar dikosongkan, hanya diisi kalau upload baru
+            gambar: null,
+            is_featured: !!p.is_featured,
         });
         setShowModal(true);
     };
@@ -118,9 +119,9 @@ export default function ProdukAdmin({ admin, products }) {
         padding: "1rem",
     };
 
-    // Gambar yang ditampilkan di preview modal: baru dipilih > gambar lama produk > kosong
     const displayPreview =
         previewUrl || (editData ? imgSrc(editData.gambar) : null);
+    const jumlahFeatured = (products || []).filter((p) => p.is_featured).length;
 
     return (
         <AdminLayout active="Produk" admin={admin}>
@@ -155,6 +156,26 @@ export default function ProdukAdmin({ admin, products }) {
                 </button>
             </div>
 
+            {/* Info featured */}
+            <div
+                style={{
+                    background: "#fffbeb",
+                    border: "1px solid #fde68a",
+                    borderRadius: 9,
+                    padding: ".75rem 1rem",
+                    marginBottom: "1.1rem",
+                    fontSize: ".8rem",
+                    color: "#854d0e",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: ".5rem",
+                }}
+            >
+                ⭐ <strong>{jumlahFeatured}</strong> produk ditandai tampil di
+                halaman Home (Produk Pilihan). Atur lewat toggle "Tampilkan di
+                Home" saat tambah/edit produk.
+            </div>
+
             {/* Stat mini */}
             <div
                 style={{
@@ -165,34 +186,19 @@ export default function ProdukAdmin({ admin, products }) {
                 }}
             >
                 {[
-                    {
-                        label: "Total Produk",
-                        value: (products || []).length,
-                        color: "#dbeafe",
-                        text: "#1d4ed8",
-                    },
+                    { label: "Total Produk", value: (products || []).length },
                     {
                         label: "Produk Aktif",
                         value: (products || []).filter(
                             (p) => p.status === "aktif",
                         ).length,
-                        color: "#dcfce7",
-                        text: "#166534",
                     },
+                    { label: "Tampil di Home", value: jumlahFeatured },
                     {
                         label: "Stok Menipis",
                         value: (products || []).filter(
                             (p) => p.stok > 0 && p.stok < 8,
                         ).length,
-                        color: "#fef9c3",
-                        text: "#854d0e",
-                    },
-                    {
-                        label: "Stok Habis",
-                        value: (products || []).filter((p) => p.stok === 0)
-                            .length,
-                        color: "#fee2e2",
-                        text: "#991b1b",
                     },
                 ].map((s, i) => (
                     <div
@@ -279,6 +285,7 @@ export default function ProdukAdmin({ admin, products }) {
                                     "Harga",
                                     "Stok",
                                     "Status",
+                                    "Home",
                                     "Aksi",
                                 ].map((h) => (
                                     <th key={h}>{h}</th>
@@ -410,6 +417,25 @@ export default function ProdukAdmin({ admin, products }) {
                                             {p.status}
                                         </span>
                                     </td>
+                                    <td style={{ textAlign: "center" }}>
+                                        {p.is_featured ? (
+                                            <span
+                                                title="Tampil di Home"
+                                                style={{ fontSize: "1rem" }}
+                                            >
+                                                ⭐
+                                            </span>
+                                        ) : (
+                                            <span
+                                                style={{
+                                                    color: "#ddd",
+                                                    fontSize: ".7rem",
+                                                }}
+                                            >
+                                                —
+                                            </span>
+                                        )}
+                                    </td>
                                     <td>
                                         <div
                                             style={{
@@ -492,7 +518,7 @@ export default function ProdukAdmin({ admin, products }) {
                             </button>
                         </div>
                         <form onSubmit={handleSave}>
-                            {/* ===== UPLOAD GAMBAR ===== */}
+                            {/* Upload gambar */}
                             <div className="form-group">
                                 <label className="form-label">
                                     Foto Produk
@@ -504,7 +530,6 @@ export default function ProdukAdmin({ admin, products }) {
                                         alignItems: "center",
                                     }}
                                 >
-                                    {/* Preview */}
                                     <div
                                         style={{
                                             width: 90,
@@ -540,7 +565,6 @@ export default function ProdukAdmin({ admin, products }) {
                                             </span>
                                         )}
                                     </div>
-                                    {/* Tombol pilih file */}
                                     <div style={{ flex: 1 }}>
                                         <input
                                             type="file"
@@ -751,6 +775,60 @@ export default function ProdukAdmin({ admin, products }) {
                                     ))}
                                 </div>
                             </div>
+
+                            {/* TOGGLE TAMPIL DI HOME */}
+                            <div className="form-group">
+                                <label
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: ".65rem",
+                                        padding: ".75rem 1rem",
+                                        borderRadius: 9,
+                                        background: data.is_featured
+                                            ? "#fffbeb"
+                                            : "#f9fafb",
+                                        border: `1.5px solid ${data.is_featured ? "#fde68a" : "#e5e7eb"}`,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={data.is_featured}
+                                        onChange={(e) =>
+                                            setData(
+                                                "is_featured",
+                                                e.target.checked,
+                                            )
+                                        }
+                                        style={{
+                                            width: 18,
+                                            height: 18,
+                                            cursor: "pointer",
+                                        }}
+                                    />
+                                    <div>
+                                        <div
+                                            style={{
+                                                fontWeight: 700,
+                                                fontSize: ".85rem",
+                                            }}
+                                        >
+                                            ⭐ Tampilkan di Home
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontSize: ".72rem",
+                                                color: "#888",
+                                            }}
+                                        >
+                                            Muncul di bagian "Produk Pilihan"
+                                            halaman utama
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+
                             <div
                                 style={{
                                     display: "flex",
