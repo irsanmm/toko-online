@@ -126,6 +126,7 @@ class AdminController extends Controller
             'stok'      => $request->stok,
             'ukuran'    => $request->ukuran ?? [],
             'status'    => $request->status ?? 'aktif',
+            'is_featured' => $request->boolean('is_featured'),
         ];
     
         // Upload gambar kalau ada file yang dikirim
@@ -160,6 +161,7 @@ class AdminController extends Controller
             'stok'      => $request->stok,
             'ukuran'    => $request->ukuran ?? [],
             'status'    => $request->status ?? 'aktif',
+            'is_featured' => $request->boolean('is_featured'),
         ];
     
         // Hanya update gambar kalau admin upload file baru
