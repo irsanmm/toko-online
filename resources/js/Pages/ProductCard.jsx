@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { Link, router } from "@inertiajs/react";
 
-// Helper: gambar upload baru pakai path relatif (produk/xxx.jpg) → prefix /storage/
-// Gambar lama dari seeder pakai path absolut (/assets/img/xxx.webp) → biarkan apa adanya
 const imgSrc = (g) => {
-    if (!g) return "https://placehold.co/300x180?text=No+Image";
+    if (!g) return "https://placehold.co/300x220?text=No+Image";
     return g.startsWith("/") ? g : `/storage/${g}`;
 };
 
@@ -27,7 +25,6 @@ export default function ProductCard({ produk }) {
         if (existing) {
             existing.qty += qty;
         } else {
-            // Simpan gambar yang SUDAH diproses imgSrc supaya tampil benar di Keranjang/Checkout
             cart.push({
                 ...produk,
                 gambar: imgSrc(produk.gambar),
@@ -85,10 +82,15 @@ export default function ProductCard({ produk }) {
                 e.currentTarget.style.boxShadow = "none";
             }}
         >
-            {/* Badge stok */}
-            <div style={{ padding: "0.6rem 0.9rem 0" }}>
+            {/* Gambar — sekarang full bleed, tidak ada padding kosong */}
+            <div style={{ position: "relative" }}>
+                {/* Badge stok mengambang di atas gambar */}
                 <span
                     style={{
+                        position: "absolute",
+                        top: 10,
+                        left: 10,
+                        zIndex: 2,
                         fontSize: 11,
                         fontWeight: 700,
                         padding: "3px 10px",
@@ -99,40 +101,38 @@ export default function ProductCard({ produk }) {
                 >
                     {produk.stok > 0 ? `Stok: ${produk.stok}` : "Habis"}
                 </span>
-            </div>
 
-            {/* Gambar — klik pindah ke halaman detail */}
-            <Link href={`/produk/${produk.id}`}>
-                <div
-                    style={{
-                        padding: "0.75rem",
-                        background: "#fafafa",
-                        margin: "0.6rem",
-                        borderRadius: 12,
-                        cursor: "pointer",
-                    }}
-                >
-                    <img
-                        src={imgSrc(produk.gambar)}
-                        alt={produk.nama}
-                        style={{
-                            width: "100%",
-                            height: 180,
-                            objectFit: "contain",
-                            display: "block",
-                        }}
-                        onError={(e) => {
-                            e.target.src =
-                                "https://placehold.co/300x180?text=No+Image";
-                        }}
-                    />
-                </div>
-            </Link>
+                <Link href={`/produk/${produk.id}`}>
+                    <div style={{ overflow: "hidden", cursor: "pointer" }}>
+                        <img
+                            src={imgSrc(produk.gambar)}
+                            alt={produk.nama}
+                            style={{
+                                width: "100%",
+                                height: 220,
+                                objectFit: "cover",
+                                display: "block",
+                                transition: "transform .3s",
+                            }}
+                            onMouseEnter={(e) =>
+                                (e.target.style.transform = "scale(1.05)")
+                            }
+                            onMouseLeave={(e) =>
+                                (e.target.style.transform = "scale(1)")
+                            }
+                            onError={(e) => {
+                                e.target.src =
+                                    "https://placehold.co/300x220?text=No+Image";
+                            }}
+                        />
+                    </div>
+                </Link>
+            </div>
 
             {/* Info */}
             <div
                 style={{
-                    padding: "0 1rem 1rem",
+                    padding: "1rem",
                     flex: 1,
                     display: "flex",
                     flexDirection: "column",
