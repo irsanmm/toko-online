@@ -2,14 +2,17 @@ import { Head, Link } from "@inertiajs/react";
 import { useState } from "react";
 import Layout from "./Layout";
 
+const imgSrc = (g) => {
+    if (!g) return "https://placehold.co/400x360?text=No+Image";
+    return g.startsWith("/") ? g : `/storage/${g}`;
+};
+
 export default function DetailProduk({ produk }) {
     const [ukuran, setUkuran] = useState("");
     const [qty, setQty] = useState(1);
     const [added, setAdded] = useState(false);
-    const [activeImg, setActiveImg] = useState(0);
 
-    // Simulasi beberapa gambar (nanti bisa dari database)
-    const images = [produk.gambar, produk.gambar, produk.gambar];
+    const mainImage = imgSrc(produk.gambar);
 
     const formatHarga = (n) => "Rp " + n.toLocaleString("id-ID");
 
@@ -25,7 +28,12 @@ export default function DetailProduk({ produk }) {
         if (existing) {
             existing.qty += qty;
         } else {
-            cart.push({ ...produk, ukuran, qty });
+            cart.push({
+                ...produk,
+                gambar: imgSrc(produk.gambar),
+                ukuran,
+                qty,
+            });
         }
         localStorage.setItem("amengCart", JSON.stringify(cart));
         window.dispatchEvent(new Event("cartUpdated"));
@@ -83,63 +91,29 @@ export default function DetailProduk({ produk }) {
                         alignItems: "start",
                     }}
                 >
-                    {/* Gambar */}
+                    {/* Gambar — tanpa thumbnail, hanya 1 gambar utama */}
                     <div>
                         <div
                             style={{
                                 background: "#f9fafb",
                                 borderRadius: 16,
                                 padding: "2rem",
-                                marginBottom: "1rem",
                                 border: "1px solid #f0f0f0",
                             }}
                         >
                             <img
-                                src={images[activeImg]}
+                                src={mainImage}
                                 alt={produk.nama}
                                 style={{
                                     width: "100%",
-                                    height: 360,
+                                    height: 400,
                                     objectFit: "contain",
                                 }}
                                 onError={(e) =>
                                     (e.target.src =
-                                        "https://placehold.co/400x360?text=No+Image")
+                                        "https://placehold.co/400x400?text=No+Image")
                                 }
                             />
-                        </div>
-                        {/* Thumbnail */}
-                        <div style={{ display: "flex", gap: "0.75rem" }}>
-                            {images.map((img, i) => (
-                                <div
-                                    key={i}
-                                    onClick={() => setActiveImg(i)}
-                                    style={{
-                                        width: 72,
-                                        height: 72,
-                                        borderRadius: 10,
-                                        overflow: "hidden",
-                                        border: `2px solid ${activeImg === i ? "#f59e0b" : "#f0f0f0"}`,
-                                        background: "#f9fafb",
-                                        cursor: "pointer",
-                                        padding: "0.25rem",
-                                    }}
-                                >
-                                    <img
-                                        src={img}
-                                        alt=""
-                                        style={{
-                                            width: "100%",
-                                            height: "100%",
-                                            objectFit: "contain",
-                                        }}
-                                        onError={(e) =>
-                                            (e.target.src =
-                                                "https://placehold.co/70x70?text=Img")
-                                        }
-                                    />
-                                </div>
-                            ))}
                         </div>
                     </div>
 
