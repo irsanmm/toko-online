@@ -1,15 +1,19 @@
 import { Head, Link, router } from "@inertiajs/react";
 import { useState } from "react";
 import AdminLayout from "./AdminLayout";
+import ModalResi from "./ModalResi";
 
 export default function DashboardAdmin({
     admin,
     stats,
     pesananTerbaru,
     produkTerlaris,
+    kurirList,
 }) {
     const [filterStatus, setFilterStatus] = useState("Semua");
     const [hapusPesanan, setHapusPesanan] = useState(null);
+    const [modalResi, setModalResi] = useState(null);
+    const [loadingId, setLoadingId] = useState(null);
 
     const formatHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
 
@@ -29,10 +33,14 @@ export default function DashboardAdmin({
             : pesananTerbaru.filter((p) => p.status === filterStatus);
 
     const handleUpdateStatus = (nomorPesanan, newStatus) => {
+        setLoadingId(nomorPesanan);
         router.put(
             `/admin/pesanan/${nomorPesanan}`,
             { status: newStatus },
-            { preserveScroll: true },
+            {
+                onFinish: () => setLoadingId(null),
+                preserveScroll: true,
+            },
         );
     };
 
@@ -99,6 +107,72 @@ export default function DashboardAdmin({
         justifyContent: "center",
         zIndex: 999,
         padding: "1rem",
+    };
+
+    // Render tombol aksi pintar sesuai status
+    const renderAksiUtama = (p) => {
+        if (p.status === "Pending") {
+            return (
+                <button
+                    onClick={() => handleUpdateStatus(p.id, "Diproses")}
+                    disabled={loadingId === p.id}
+                    style={{
+                        padding: "4px 10px",
+                        borderRadius: 6,
+                        border: "none",
+                        background: "#3b82f6",
+                        color: "#fff",
+                        fontSize: ".68rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                    }}
+                >
+                    {loadingId === p.id ? "⏳..." : "✅ Proses Sekarang"}
+                </button>
+            );
+        }
+        if (p.status === "Diproses") {
+            return (
+                <button
+                    onClick={() => setModalResi(p)}
+                    style={{
+                        padding: "4px 10px",
+                        borderRadius: 6,
+                        border: "none",
+                        background: "#0369a1",
+                        color: "#fff",
+                        fontSize: ".68rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                    }}
+                >
+                    🚚 Kirim Resi
+                </button>
+            );
+        }
+        if (p.status === "Dikirim") {
+            return (
+                <button
+                    onClick={() => setModalResi(p)}
+                    style={{
+                        padding: "4px 10px",
+                        borderRadius: 6,
+                        border: "1.5px solid #0369a1",
+                        background: "#fff",
+                        color: "#0369a1",
+                        fontSize: ".68rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                    }}
+                >
+                    ✏️ Edit Resi
+                </button>
+            );
+        }
+        return null; // Selesai / Batal — tidak ada aksi utama
     };
 
     return (
@@ -260,7 +334,13 @@ export default function DashboardAdmin({
                             </thead>
                             <tbody>
                                 {filteredPesanan.map((p, i) => (
-                                    <tr key={i}>
+                                    <tr
+                                        key={i}
+                                        style={{
+                                            opacity:
+                                                loadingId === p.id ? 0.6 : 1,
+                                        }}
+                                    >
                                         <td
                                             style={{
                                                 fontWeight: 700,
@@ -298,14 +378,32 @@ export default function DashboardAdmin({
                                             >
                                                 {p.status}
                                             </span>
+                                            {p.has_resi && (
+                                                <div
+                                                    style={{
+                                                        fontSize: ".62rem",
+                                                        color: "#888",
+                                                        marginTop: "2px",
+                                                    }}
+                                                >
+                                                    {p.kurir?.toUpperCase()} ·{" "}
+                                                    {p.nomor_resi}
+                                                </div>
+                                            )}
                                         </td>
                                         <td>
                                             <div
                                                 style={{
                                                     display: "flex",
                                                     gap: "4px",
+                                                    alignItems: "center",
+                                                    flexWrap: "wrap",
                                                 }}
                                             >
+                                                {/* Tombol aksi utama (pintar sesuai status) */}
+                                                {renderAksiUtama(p)}
+
+                                                {/* Dropdown manual — opsi cadangan, untuk ubah ke Batal dll */}
                                                 <select
                                                     value={p.status}
                                                     onChange={(e) =>
@@ -314,13 +412,18 @@ export default function DashboardAdmin({
                                                             e.target.value,
                                                         )
                                                     }
+                                                    disabled={
+                                                        loadingId === p.id
+                                                    }
+                                                    title="Ubah status manual"
                                                     style={{
                                                         padding: "2px 4px",
                                                         border: "1px solid #e5e7eb",
                                                         borderRadius: 5,
-                                                        fontSize: ".68rem",
+                                                        fontSize: ".65rem",
                                                         cursor: "pointer",
                                                         background: "#fff",
+                                                        color: "#aaa",
                                                     }}
                                                 >
                                                     {[
@@ -335,6 +438,8 @@ export default function DashboardAdmin({
                                                         </option>
                                                     ))}
                                                 </select>
+
+                                                {/* Hapus */}
                                                 <button
                                                     onClick={() =>
                                                         setHapusPesanan(p)
@@ -761,6 +866,15 @@ export default function DashboardAdmin({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Modal Input/Edit Resi */}
+            {modalResi && (
+                <ModalResi
+                    pesanan={modalResi}
+                    kurirList={kurirList}
+                    onClose={() => setModalResi(null)}
+                />
             )}
         </AdminLayout>
     );
