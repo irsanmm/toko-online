@@ -3,6 +3,11 @@ import { useState } from "react";
 import Layout from "./Layout";
 import TrackingResi from "./TrackingResi";
 
+const imgSrc = (g) => {
+    if (!g) return null;
+    return g.startsWith("/") ? g : `/storage/${g}`;
+};
+
 export default function PesananSaya({
     pesanan,
     notifikasi: initialNotifikasi,
@@ -11,8 +16,12 @@ export default function PesananSaya({
     const [detail, setDetail] = useState(null);
     const [trackingPesanan, setTracking] = useState(null);
     const [notifikasi, setNotifikasi] = useState(initialNotifikasi || []);
-    const [konfirmModal, setKonfirmModal] = useState(null); // pesanan yang mau dikonfirmasi
+    const [konfirmModal, setKonfirmModal] = useState(null);
+    const [ulasanModal, setUlasanModal] = useState(null);
+    const [ratingValue, setRatingValue] = useState(0);
+    const [komentarValue, setKomentarValue] = useState("");
     const [loadingId, setLoadingId] = useState(null);
+    const [submittingUlasan, setSubmittingUlasan] = useState(false);
 
     const tabs = ["Semua", "Diproses", "Dikirim", "Selesai", "Batal"];
     const fmtHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
@@ -30,12 +39,45 @@ export default function PesananSaya({
             ? pesanan
             : pesanan.filter((p) => p.status === activeTab);
 
-    // Hapus notifikasi
-    const hapusNotif = (i) =>
-        setNotifikasi((prev) => prev.filter((_, idx) => idx !== i));
-    const hapusSemuaNotif = () => setNotifikasi([]);
+    const csrfToken = () =>
+        document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content") || "";
 
-    // Konfirmasi pesanan diterima
+    // ===== Hapus notifikasi (permanen, tersimpan di database) =====
+    const hapusNotif = async (nomorPesanan, index) => {
+        setNotifikasi((prev) => prev.filter((_, i) => i !== index)); // optimistic UI
+        try {
+            await fetch(`/pembeli/notifikasi/${nomorPesanan}/hapus`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": csrfToken(),
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            });
+        } catch (e) {
+            /* gagal silent, sudah hilang dari UI */
+        }
+    };
+
+    const hapusSemuaNotif = async () => {
+        setNotifikasi([]);
+        try {
+            await fetch("/pembeli/notifikasi/hapus-semua", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": csrfToken(),
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            });
+        } catch (e) {
+            /* gagal silent */
+        }
+    };
+
+    // ===== Konfirmasi pesanan diterima =====
     const handlePesananDiterima = () => {
         if (!konfirmModal) return;
         setLoadingId(konfirmModal.id);
@@ -48,6 +90,37 @@ export default function PesananSaya({
                     setLoadingId(null);
                 },
                 onError: () => setLoadingId(null),
+                preserveScroll: true,
+            },
+        );
+    };
+
+    // ===== Buka modal ulasan =====
+    const openUlasan = (p) => {
+        setUlasanModal(p);
+        setRatingValue(0);
+        setKomentarValue("");
+    };
+
+    // ===== Submit ulasan =====
+    const handleSubmitUlasan = () => {
+        if (ratingValue === 0) {
+            alert("Pilih rating bintang dulu ya!");
+            return;
+        }
+        setSubmittingUlasan(true);
+        router.post(
+            `/pembeli/pesanan/${ulasanModal.id}/ulasan`,
+            {
+                rating: ratingValue,
+                komentar: komentarValue,
+            },
+            {
+                onSuccess: () => {
+                    setUlasanModal(null);
+                    setSubmittingUlasan(false);
+                },
+                onError: () => setSubmittingUlasan(false),
                 preserveScroll: true,
             },
         );
@@ -86,7 +159,7 @@ export default function PesananSaya({
                             fontSize: ".875rem",
                         }}
                     >
-                        Pantau status semua pesananmu
+                        Pantau status semua pesananmu di sini
                     </p>
                 </div>
 
@@ -205,7 +278,9 @@ export default function PesananSaya({
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() => hapusNotif(i)}
+                                        onClick={() =>
+                                            hapusNotif(n.nomor_pesanan, i)
+                                        }
                                         style={{
                                             background: "none",
                                             border: "none",
@@ -382,22 +457,42 @@ export default function PesananSaya({
                                         flexWrap: "wrap",
                                     }}
                                 >
-                                    <div
-                                        style={{
-                                            width: 64,
-                                            height: 64,
-                                            borderRadius: 10,
-                                            background: "#f9fafb",
-                                            border: "1px solid #f0f0f0",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            fontSize: "1.75rem",
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        👟
-                                    </div>
+                                    {/* Foto produk asli, fallback emoji kalau tidak ada */}
+                                    {imgSrc(p.gambar) ? (
+                                        <img
+                                            src={imgSrc(p.gambar)}
+                                            alt={p.produk}
+                                            style={{
+                                                width: 64,
+                                                height: 64,
+                                                borderRadius: 10,
+                                                objectFit: "cover",
+                                                background: "#f9fafb",
+                                                border: "1px solid #f0f0f0",
+                                                flexShrink: 0,
+                                            }}
+                                            onError={(e) => {
+                                                e.target.style.display = "none";
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                width: 64,
+                                                height: 64,
+                                                borderRadius: 10,
+                                                background: "#f9fafb",
+                                                border: "1px solid #f0f0f0",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                fontSize: "1.75rem",
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            👟
+                                        </div>
+                                    )}
 
                                     <div style={{ flex: 1 }}>
                                         <div
@@ -454,7 +549,6 @@ export default function PesananSaya({
                                             Lihat Detail
                                         </button>
 
-                                        {/* Tombol Pesanan Diterima — hanya muncul saat Dikirim */}
                                         {p.status === "Dikirim" && (
                                             <button
                                                 onClick={() =>
@@ -481,27 +575,47 @@ export default function PesananSaya({
                                             >
                                                 {loadingId === p.id
                                                     ? "⏳ Memproses..."
-                                                    : "Pesanan Diterima"}
+                                                    : "✅ Pesanan Diterima"}
                                             </button>
                                         )}
 
-                                        {/* Tombol Beri Ulasan — hanya muncul saat Selesai */}
-                                        {p.status === "Selesai" && (
-                                            <button
-                                                style={{
-                                                    padding: ".45rem 1rem",
-                                                    borderRadius: 8,
-                                                    border: "none",
-                                                    background: "#f59e0b",
-                                                    color: "#111",
-                                                    fontSize: ".78rem",
-                                                    fontWeight: 700,
-                                                    cursor: "pointer",
-                                                }}
-                                            >
-                                                Beri Ulasan
-                                            </button>
-                                        )}
+                                        {p.status === "Selesai" &&
+                                            !p.has_ulasan && (
+                                                <button
+                                                    onClick={() =>
+                                                        openUlasan(p)
+                                                    }
+                                                    style={{
+                                                        padding: ".45rem 1rem",
+                                                        borderRadius: 8,
+                                                        border: "none",
+                                                        background: "#f59e0b",
+                                                        color: "#111",
+                                                        fontSize: ".78rem",
+                                                        fontWeight: 700,
+                                                        cursor: "pointer",
+                                                    }}
+                                                >
+                                                    ⭐ Beri Ulasan
+                                                </button>
+                                            )}
+
+                                        {p.status === "Selesai" &&
+                                            p.has_ulasan && (
+                                                <span
+                                                    style={{
+                                                        padding: ".45rem 1rem",
+                                                        borderRadius: 8,
+                                                        border: "1.5px solid #dcfce7",
+                                                        background: "#f0fdf4",
+                                                        color: "#166534",
+                                                        fontSize: ".75rem",
+                                                        fontWeight: 700,
+                                                    }}
+                                                >
+                                                    ✓ Sudah Diulas
+                                                </span>
+                                            )}
                                     </div>
                                 </div>
 
@@ -763,6 +877,235 @@ export default function PesananSaya({
                                 Ya, Sudah Diterima ✅
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL BERI ULASAN */}
+            {ulasanModal && (
+                <div style={modalStyle} onClick={() => setUlasanModal(null)}>
+                    <div
+                        style={{
+                            background: "#fff",
+                            borderRadius: 14,
+                            padding: "1.75rem",
+                            width: "100%",
+                            maxWidth: 440,
+                            boxShadow: "0 20px 60px rgba(0,0,0,.15)",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "1rem",
+                            }}
+                        >
+                            <h2 style={{ fontWeight: 800, fontSize: "1rem" }}>
+                                ⭐ Beri Ulasan
+                            </h2>
+                            <button
+                                onClick={() => setUlasanModal(null)}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    fontSize: "1.2rem",
+                                    cursor: "pointer",
+                                    color: "#888",
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Info produk */}
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: ".75rem",
+                                alignItems: "center",
+                                marginBottom: "1.5rem",
+                                padding: ".75rem",
+                                background: "#f9fafb",
+                                borderRadius: 10,
+                            }}
+                        >
+                            {imgSrc(ulasanModal.gambar) ? (
+                                <img
+                                    src={imgSrc(ulasanModal.gambar)}
+                                    alt={ulasanModal.produk}
+                                    style={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: 8,
+                                        objectFit: "cover",
+                                        flexShrink: 0,
+                                    }}
+                                    onError={(e) => {
+                                        e.target.style.display = "none";
+                                    }}
+                                />
+                            ) : (
+                                <div
+                                    style={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: 8,
+                                        background: "#fff",
+                                        border: "1px solid #f0f0f0",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontSize: "1.4rem",
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    👟
+                                </div>
+                            )}
+                            <div>
+                                <div
+                                    style={{
+                                        fontWeight: 700,
+                                        fontSize: ".85rem",
+                                    }}
+                                >
+                                    {ulasanModal.produk}
+                                </div>
+                                <div
+                                    style={{
+                                        fontSize: ".72rem",
+                                        color: "#888",
+                                    }}
+                                >
+                                    Pesanan {ulasanModal.id}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bintang rating */}
+                        <div
+                            style={{
+                                textAlign: "center",
+                                marginBottom: "1.25rem",
+                            }}
+                        >
+                            <p
+                                style={{
+                                    fontSize: ".85rem",
+                                    fontWeight: 600,
+                                    marginBottom: ".6rem",
+                                }}
+                            >
+                                Bagaimana penilaianmu?
+                            </p>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "center",
+                                    gap: ".4rem",
+                                }}
+                            >
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        onClick={() => setRatingValue(star)}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            cursor: "pointer",
+                                            fontSize: "2rem",
+                                            lineHeight: 1,
+                                            color:
+                                                star <= ratingValue
+                                                    ? "#f59e0b"
+                                                    : "#e5e7eb",
+                                            transition: "color .15s",
+                                        }}
+                                    >
+                                        ★
+                                    </button>
+                                ))}
+                            </div>
+                            {ratingValue > 0 && (
+                                <p
+                                    style={{
+                                        fontSize: ".78rem",
+                                        color: "#888",
+                                        marginTop: ".4rem",
+                                    }}
+                                >
+                                    {
+                                        [
+                                            "",
+                                            "Sangat Kurang",
+                                            "Kurang",
+                                            "Cukup",
+                                            "Bagus",
+                                            "Sangat Bagus!",
+                                        ][ratingValue]
+                                    }
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Komentar */}
+                        <div style={{ marginBottom: "1.25rem" }}>
+                            <label
+                                style={{
+                                    display: "block",
+                                    fontWeight: 600,
+                                    fontSize: ".85rem",
+                                    marginBottom: ".4rem",
+                                }}
+                            >
+                                Komentar (opsional)
+                            </label>
+                            <textarea
+                                value={komentarValue}
+                                onChange={(e) =>
+                                    setKomentarValue(e.target.value)
+                                }
+                                placeholder="Bagaimana kualitas produk dan pengalaman belanjamu?"
+                                rows={3}
+                                maxLength={500}
+                                style={{
+                                    width: "100%",
+                                    padding: ".65rem .9rem",
+                                    border: "1.5px solid #e5e7eb",
+                                    borderRadius: 9,
+                                    fontSize: ".85rem",
+                                    resize: "vertical",
+                                    fontFamily: "inherit",
+                                }}
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleSubmitUlasan}
+                            disabled={submittingUlasan}
+                            style={{
+                                width: "100%",
+                                padding: ".75rem",
+                                background: submittingUlasan
+                                    ? "#fde68a"
+                                    : "#f59e0b",
+                                color: "#111",
+                                border: "none",
+                                borderRadius: 10,
+                                fontWeight: 700,
+                                cursor: submittingUlasan
+                                    ? "not-allowed"
+                                    : "pointer",
+                                fontSize: ".9rem",
+                            }}
+                        >
+                            {submittingUlasan
+                                ? "⏳ Mengirim..."
+                                : "Kirim Ulasan"}
+                        </button>
                     </div>
                 </div>
             )}
