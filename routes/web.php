@@ -31,6 +31,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/pembeli/pesanan-diterima', [AuthController::class, 'pesananDiterima'])->name('pembeli.pesanan.diterima');
     Route::get('/pembeli/profil',        [AuthController::class, 'profil'])->name('pembeli.profil');
     Route::post('/pembeli/profil',       [AuthController::class, 'updateProfil'])->name('pembeli.profil.update');
+    Route::post('/pembeli/notifikasi/{nomor}/hapus', [AuthController::class, 'hapusNotifikasi'])->name('pembeli.notifikasi.hapus');
+    Route::post('/pembeli/notifikasi/hapus-semua', [AuthController::class, 'hapusSemuaNotifikasi'])->name('pembeli.notifikasi.hapus.semua');
+    Route::post('/pembeli/pesanan/{nomor}/ulasan', [AuthController::class, 'submitUlasan'])->name('pembeli.ulasan.submit');
 });
 
 // ===== ADMIN AUTH =====
