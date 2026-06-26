@@ -1,13 +1,10 @@
 <?php
-// ============================================================
-// SIMPAN DI  : app/Http/Controllers/AuthController.php
-// TIMPA FILE : yang lama — versi final lengkap
-// ============================================================
 
 namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Order;
+use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -61,12 +58,17 @@ class AuthController extends Controller
     {
         if (!Auth::check()) return redirect()->route('pembeli.login');
 
-        $pesanan = Order::where('user_id', Auth::id())
-            ->with('items')->latest()->get()
+        $userId = Auth::id();
+
+        $pesanan = Order::where('user_id', $userId)
+            ->with('items.product')
+            ->latest()
+            ->get()
             ->map(fn($o) => [
                 'id'         => $o->nomor_pesanan,
                 'tanggal'    => $o->created_at->format('d M Y'),
                 'produk'     => $o->items->first()?->nama_produk ?? '-',
+                'gambar'     => $o->items->first()?->product?->gambar ?? null,
                 'ukuran'     => $o->items->first()?->ukuran ?? '-',
                 'qty'        => $o->items->sum('qty'),
                 'total'      => $o->total_harga,
@@ -76,31 +78,79 @@ class AuthController extends Controller
                 'kurir'      => $o->kurir,
                 'nomor_resi' => $o->nomor_resi,
                 'has_resi'   => $o->hasResi(),
+                'has_ulasan' => Review::where('order_id', $o->id)->exists(),
             ]);
 
-        // Notifikasi pesanan dikirim/selesai (3 hari terakhir)
-        $notifikasi = Order::where('user_id', Auth::id())
-            ->whereIn('status', ['dikirim','selesai'])
+        // Notifikasi: hanya tampilkan yang BELUM dibaca/dihapus
+        $notifikasi = Order::where('user_id', $userId)
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->where('status', 'dikirim')->where('notif_dikirim_dibaca', false);
+                })->orWhere(function ($q2) {
+                    $q2->where('status', 'selesai')->where('notif_selesai_dibaca', false);
+                });
+            })
             ->whereNotNull('nomor_resi')
-            ->where('updated_at', '>=', now()->subDays(3))
-            ->latest('updated_at')->take(5)->get()
+            ->latest('updated_at')
+            ->take(10)
+            ->get()
             ->map(fn($o) => [
-                'type'       => $o->status,
-                'judul'      => $o->status === 'dikirim'
+                'nomor_pesanan' => $o->nomor_pesanan,
+                'type'          => $o->status,
+                'judul'         => $o->status === 'dikirim'
                     ? "Pesanan {$o->nomor_pesanan} sedang dikirim! 🚚"
                     : "Pesanan {$o->nomor_pesanan} telah selesai ✅",
-                'pesan'      => $o->status === 'dikirim'
+                'pesan'         => $o->status === 'dikirim'
                     ? "Pesananmu sudah dalam perjalanan. Cek resi untuk melacak posisi paket."
                     : "Pesananmu sudah diterima. Jangan lupa berikan ulasan ya!",
-                'nomor_resi' => $o->nomor_resi,
-                'kurir'      => $o->kurir,
-                'waktu'      => $o->updated_at->diffForHumans(),
+                'nomor_resi'    => $o->nomor_resi,
+                'kurir'         => $o->kurir,
+                'waktu'         => $o->updated_at->diffForHumans(),
             ]);
 
         return Inertia::render('PesananSaya', [
             'pesanan'    => $pesanan,
             'notifikasi' => $notifikasi,
         ]);
+    }
+
+    // ===== HAPUS NOTIFIKASI (permanen, tersimpan di database) =====
+    public function hapusNotifikasi($nomorPesanan)
+    {
+        if (!Auth::check()) return response()->json(['success' => false], 401);
+
+        $order = Order::where('nomor_pesanan', $nomorPesanan)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        if ($order->status === 'dikirim') {
+            $order->update(['notif_dikirim_dibaca' => true]);
+        } elseif ($order->status === 'selesai') {
+            $order->update(['notif_selesai_dibaca' => true]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function hapusSemuaNotifikasi()
+    {
+        if (!Auth::check()) return response()->json(['success' => false], 401);
+
+        $orders = Order::where('user_id', Auth::id())
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->where('status', 'dikirim')->where('notif_dikirim_dibaca', false);
+                })->orWhere(function ($q2) {
+                    $q2->where('status', 'selesai')->where('notif_selesai_dibaca', false);
+                });
+            })->get();
+
+        foreach ($orders as $o) {
+            if ($o->status === 'dikirim') $o->update(['notif_dikirim_dibaca' => true]);
+            if ($o->status === 'selesai') $o->update(['notif_selesai_dibaca' => true]);
+        }
+
+        return response()->json(['success' => true]);
     }
 
     // Pembeli konfirmasi pesanan diterima
@@ -120,6 +170,37 @@ class AuthController extends Controller
         return back()->with('success', 'Pesanan dikonfirmasi diterima. Terima kasih!');
     }
 
+    // ===== SUBMIT ULASAN (baru) =====
+    public function submitUlasan(Request $request, $nomorPesanan)
+    {
+        if (!Auth::check()) return redirect()->route('pembeli.login');
+
+        $request->validate([
+            'rating'   => 'required|integer|min:1|max:5',
+            'komentar' => 'nullable|string|max:500',
+        ]);
+
+        $order = Order::where('nomor_pesanan', $nomorPesanan)
+            ->where('user_id', Auth::id())
+            ->where('status', 'selesai')
+            ->with('items')
+            ->firstOrFail();
+
+        $productId = $order->items->first()?->product_id;
+
+        Review::updateOrCreate(
+            ['order_id' => $order->id],
+            [
+                'product_id' => $productId,
+                'user_id'    => Auth::id(),
+                'rating'     => $request->rating,
+                'komentar'   => $request->komentar,
+            ]
+        );
+
+        return back()->with('success', 'Terima kasih atas ulasanmu! ⭐');
+    }
+
     public function trackResi(Request $request)
     {
         if (!Auth::check()) {
@@ -134,7 +215,6 @@ class AuthController extends Controller
         if (!$order) return response()->json(['success'=>false,'message'=>'Pesanan tidak ditemukan.']);
         if (!$order->hasResi()) return response()->json(['success'=>false,'message'=>'Resi belum tersedia.']);
 
-        // Pakai cache 30 menit
         if ($order->tracking_data && $order->resi_updated_at &&
             $order->resi_updated_at->diffInMinutes(now()) < 30) {
             return response()->json(['success'=>true,'data'=>$order->tracking_data]);
