@@ -156,26 +156,6 @@ export default function ProdukAdmin({ admin, products }) {
                 </button>
             </div>
 
-            {/* Info featured */}
-            <div
-                style={{
-                    background: "#fffbeb",
-                    border: "1px solid #fde68a",
-                    borderRadius: 9,
-                    padding: ".75rem 1rem",
-                    marginBottom: "1.1rem",
-                    fontSize: ".8rem",
-                    color: "#854d0e",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: ".5rem",
-                }}
-            >
-                ⭐ <strong>{jumlahFeatured}</strong> produk ditandai tampil di
-                halaman Home (Produk Pilihan). Atur lewat toggle "Tampilkan di
-                Home" saat tambah/edit produk.
-            </div>
-
             {/* Stat mini */}
             <div
                 style={{
