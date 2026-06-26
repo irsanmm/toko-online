@@ -60,6 +60,57 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
         });
     };
 
+    // Tombol aksi pintar sesuai status — tidak perlu buka dropdown untuk alur normal
+    const renderAksiUtama = (p) => {
+        if (p.status === "Pending") {
+            return (
+                <button
+                    onClick={() => handleUpdateStatus(p.id, "Diproses")}
+                    disabled={loadingId === p.id}
+                    className="btn btn-sm"
+                    style={{
+                        background: "#3b82f6",
+                        color: "#fff",
+                        border: "none",
+                    }}
+                >
+                    {loadingId === p.id ? "⏳..." : "✅ Proses Sekarang"}
+                </button>
+            );
+        }
+        if (p.status === "Diproses") {
+            return (
+                <button
+                    onClick={() => setModalResi(p)}
+                    className="btn btn-sm"
+                    style={{
+                        background: "#0369a1",
+                        color: "#fff",
+                        border: "none",
+                    }}
+                >
+                    🚚 Kirim Resi
+                </button>
+            );
+        }
+        if (p.status === "Dikirim") {
+            return (
+                <button
+                    onClick={() => setModalResi(p)}
+                    className="btn btn-sm"
+                    style={{
+                        background: "#fff",
+                        color: "#0369a1",
+                        border: "1.5px solid #0369a1",
+                    }}
+                >
+                    ✏️ Edit Resi
+                </button>
+            );
+        }
+        return null;
+    };
+
     const modalStyle = {
         position: "fixed",
         inset: 0,
@@ -287,6 +338,18 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                         >
                                             {p.status}
                                         </span>
+                                        {p.has_resi && (
+                                            <div
+                                                style={{
+                                                    fontSize: ".62rem",
+                                                    color: "#888",
+                                                    marginTop: "2px",
+                                                }}
+                                            >
+                                                {p.kurir?.toUpperCase()} ·{" "}
+                                                {p.nomor_resi}
+                                            </div>
+                                        )}
                                     </td>
                                     <td>
                                         <div
@@ -294,8 +357,12 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                 display: "flex",
                                                 gap: ".3rem",
                                                 flexWrap: "wrap",
+                                                alignItems: "center",
                                             }}
                                         >
+                                            {/* Tombol aksi utama pintar */}
+                                            {renderAksiUtama(p)}
+
                                             <button
                                                 className="btn btn-outline btn-sm"
                                                 onClick={() => setDetail(p)}
@@ -303,6 +370,7 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                 Detail
                                             </button>
 
+                                            {/* Dropdown manual — opsi cadangan */}
                                             <select
                                                 value={p.status}
                                                 onChange={(e) =>
@@ -312,13 +380,15 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                     )
                                                 }
                                                 disabled={loadingId === p.id}
+                                                title="Ubah status manual"
                                                 style={{
-                                                    padding: "3px 6px",
+                                                    padding: "3px 5px",
                                                     border: "1px solid #e5e7eb",
                                                     borderRadius: 6,
-                                                    fontSize: ".72rem",
+                                                    fontSize: ".68rem",
                                                     cursor: "pointer",
                                                     background: "#fff",
+                                                    color: "#aaa",
                                                 }}
                                             >
                                                 {[
@@ -334,27 +404,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                 ))}
                                             </select>
 
-                                            {(p.status === "Diproses" ||
-                                                p.status === "Dikirim") && (
-                                                <button
-                                                    className="btn btn-sm"
-                                                    style={{
-                                                        background: "#0369a1",
-                                                        color: "#fff",
-                                                        border: "none",
-                                                    }}
-                                                    onClick={() =>
-                                                        setModalResi(p)
-                                                    }
-                                                >
-                                                    🚚{" "}
-                                                    {p.has_resi
-                                                        ? "Edit Resi"
-                                                        : "Input Resi"}
-                                                </button>
-                                            )}
-
-                                            {/* Tombol Hapus */}
                                             <button
                                                 className="btn btn-sm"
                                                 style={{
@@ -488,6 +537,25 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                         </div>
 
                         <div style={{ display: "flex", gap: ".6rem" }}>
+                            {detail.status === "Pending" && (
+                                <button
+                                    className="btn"
+                                    style={{
+                                        flex: 1,
+                                        background: "#3b82f6",
+                                        color: "#fff",
+                                    }}
+                                    onClick={() => {
+                                        handleUpdateStatus(
+                                            detail.id,
+                                            "Diproses",
+                                        );
+                                        setDetail(null);
+                                    }}
+                                >
+                                    ✅ Proses Sekarang
+                                </button>
+                            )}
                             {(detail.status === "Diproses" ||
                                 detail.status === "Dikirim") && (
                                 <button
@@ -501,7 +569,7 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                     🚚{" "}
                                     {detail.has_resi
                                         ? "Edit Resi"
-                                        : "Input Resi"}
+                                        : "Kirim Resi"}
                                 </button>
                             )}
                             <button
@@ -584,7 +652,7 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                 </div>
             )}
 
-            {/* Modal Input Resi */}
+            {/* Modal Input/Edit Resi */}
             {modalResi && (
                 <ModalResi
                     pesanan={modalResi}
