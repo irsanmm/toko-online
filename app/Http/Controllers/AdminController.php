@@ -89,10 +89,16 @@ class AdminController extends Controller
             ]);
 
         return Inertia::render('Admin/DashboardAdmin', [
-            'admin'          => Auth::user(),
-            'stats'          => $stats,
-            'pesananTerbaru' => $pesananTerbaru,
-            'produkTerlaris' => $produkTerlaris,
+                'admin'          => Auth::user(),
+                'stats'          => $stats,
+                'pesananTerbaru' => $pesananTerbaru,
+                'produkTerlaris' => $produkTerlaris,
+                'kurirList'      => [
+                'jne'=>'JNE','jnt'=>'J&T Express','sicepat'=>'SiCepat',
+                'anteraja'=>'AnterAja','pos'=>'Pos Indonesia','tiki'=>'TIKI',
+                'ninja'=>'Ninja Express','lion'=>'Lion Parcel',
+                'idexpress'=>'ID Express','sap'=>'SAP Express',
+            ],
         ]);
     }
 
