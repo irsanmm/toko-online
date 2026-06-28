@@ -1,10 +1,19 @@
-import { Link, router } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react";
 import { useState } from "react";
 
 export default function AdminLayout({ children, active, admin }) {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [notifOpen, setNotifOpen] = useState(false);
     const [userOpen, setUserOpen] = useState(false);
+
+    // Badge angka REAL dari database, dikirim lewat HandleInertiaRequests middleware
+    const { adminBadges } = usePage().props;
+    const badges = adminBadges || {
+        produk: 0,
+        pesanan: 0,
+        pembeli: 0,
+        ulasan: 0,
+    };
 
     const menus = [
         {
@@ -20,20 +29,27 @@ export default function AdminLayout({ children, active, admin }) {
                     href: "/admin/produk",
                     icon: "👟",
                     label: "Produk",
-                    badge: "48",
+                    badge: String(badges.produk),
                 },
                 {
                     href: "/admin/pesanan",
                     icon: "📦",
                     label: "Pesanan",
-                    badge: "12",
+                    badge: badges.pesanan > 0 ? String(badges.pesanan) : null,
                     badgeColor: "#ef4444",
                 },
                 {
                     href: "/admin/pembeli",
                     icon: "👥",
                     label: "Pembeli",
-                    badge: "312",
+                    badge: String(badges.pembeli),
+                },
+                {
+                    href: "/admin/ulasan",
+                    icon: "⭐",
+                    label: "Ulasan",
+                    badge: badges.ulasan > 0 ? String(badges.ulasan) : null,
+                    badgeColor: "#f59e0b",
                 },
             ],
         },
