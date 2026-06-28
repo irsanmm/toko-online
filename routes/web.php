@@ -45,6 +45,8 @@ Route::post('/admin/logout',[AdminController::class, 'logout']);
 // ===== ADMIN (butuh login admin) =====
 Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
     Route::get('/dashboard',              [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/ulasan', [AdminController::class, 'ulasan'])->name('ulasan');
+    Route::delete('/ulasan/{id}', [AdminController::class, 'deleteUlasan'])->name('ulasan.delete');
 
     // Produk CRUD
     Route::get('/produk',                 [AdminController::class, 'produk'])->name('produk');
