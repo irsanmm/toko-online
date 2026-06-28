@@ -48,60 +48,135 @@ class AdminController extends Controller
     }
 
     public function dashboard()
-    {
-        if ($r = $this->checkAdmin()) return $r;
+{
+    if ($r = $this->checkAdmin()) return $r;
 
-        $stats = [
+    $stats = [
             ['label'=>'Total Pesanan','value'=>Order::count(),
-                'icon'=>'📦','color'=>'#dbeafe','accent'=>'#3b82f6',
-                'sub'=>Order::whereDate('created_at',today())->count().' hari ini','trend'=>'up'],
-                ['label'=>'Pendapatan','value'=>'Rp '.number_format(Order::where('status','selesai')->sum('total_harga'),0,',','.'),
-                'icon'=>'💰','color'=>'#dcfce7','accent'=>'#22c55e',
-                'sub'=>'Total terkonfirmasi','trend'=>'up'],
-                ['label'=>'Produk Aktif','value'=>Product::where('status','aktif')->count(),
-                'icon'=>'👟','color'=>'#fef9c3','accent'=>'#f59e0b',
-                'sub'=>Product::where('stok','<',8)->count().' stok menipis','trend'=>''],
-                ['label'=>'Total Pembeli','value'=>User::where('role','pembeli')->count(),
-                'icon'=>'👥','color'=>'#fce7f3','accent'=>'#ec4899',
-                'sub'=>User::where('role','pembeli')->whereMonth('created_at',now()->month)->count().' bulan ini','trend'=>'up'],
-            ];
+            'icon'=>'📦','color'=>'#dbeafe','accent'=>'#3b82f6',
+            'sub'=>Order::whereDate('created_at',today())->count().' hari ini','trend'=>'up'],
+            ['label'=>'Pendapatan','value'=>'Rp '.number_format(Order::where('status','selesai')->sum('total_harga'),0,',','.'),
+            'icon'=>'💰','color'=>'#dcfce7','accent'=>'#22c55e',
+            'sub'=>'Total terkonfirmasi','trend'=>'up'],
+            ['label'=>'Produk Aktif','value'=>Product::where('status','aktif')->count(),
+            'icon'=>'👟','color'=>'#fef9c3','accent'=>'#f59e0b',
+            'sub'=>Product::where('stok','<',8)->count().' stok menipis','trend'=>''],
+            ['label'=>'Total Pembeli','value'=>User::where('role','pembeli')->count(),
+            'icon'=>'👥','color'=>'#fce7f3','accent'=>'#ec4899',
+            'sub'=>'Terdaftar','trend'=>'up'],
+    ];
 
-        $pesananTerbaru = Order::with(['user','items'])->latest()->take(10)->get()
-            ->map(fn($o) => [
-                'id'         => $o->nomor_pesanan,
-                'pembeli'    => $o->user->name ?? '-',
-                'produk'     => $o->items->first()?->nama_produk ?? '-',
-                'total'      => $o->total_harga,
-                'status'     => ucfirst($o->status),
-                'tanggal'    => $o->created_at->format('d M Y'),
-                'kurir'      => $o->kurir,
-                'nomor_resi' => $o->nomor_resi,
-                'has_resi'   => $o->hasResi(),
-            ]);
-
-        $produkTerlaris = Product::withCount('orderItems')
-            ->orderBy('order_items_count','desc')->take(5)->get()
-            ->map(fn($p) => [
-                'nama'    => $p->nama,
-                'brand'   => $p->brand,
-                'terjual' => $p->order_items_count,
-                'stok'    => $p->stok,
-                'harga'   => $p->harga,
-            ]);
-
-        return Inertia::render('Admin/DashboardAdmin', [
-                'admin'          => Auth::user(),
-                'stats'          => $stats,
-                'pesananTerbaru' => $pesananTerbaru,
-                'produkTerlaris' => $produkTerlaris,
-                'kurirList'      => [
-                'jne'=>'JNE','jnt'=>'J&T Express','sicepat'=>'SiCepat',
-                'anteraja'=>'AnterAja','pos'=>'Pos Indonesia','tiki'=>'TIKI',
-                'ninja'=>'Ninja Express','lion'=>'Lion Parcel',
-                'idexpress'=>'ID Express','sap'=>'SAP Express',
-            ],
+    $pesananTerbaru = Order::with(['user','items'])->latest()->take(10)->get()
+        ->map(fn($o) => [
+            'id'         => $o->nomor_pesanan,
+            'pembeli'    => $o->user->name ?? '-',
+            'produk'     => $o->items->first()?->nama_produk ?? '-',
+            'total'      => $o->total_harga,
+            'status'     => ucfirst($o->status),
+            'tanggal'    => $o->created_at->format('d M Y'),
+            'kurir'      => $o->kurir,
+            'nomor_resi' => $o->nomor_resi,
+            'has_resi'   => $o->hasResi(),
         ]);
-    }
+
+    $produkTerlaris = Product::withCount('orderItems')
+        ->orderBy('order_items_count','desc')->take(5)->get()
+        ->map(fn($p) => [
+            'nama'    => $p->nama,
+            'brand'   => $p->brand,
+            'terjual' => $p->order_items_count,
+            'stok'    => $p->stok,
+            'harga'   => $p->harga,
+        ]);
+
+    // ===== AKTIVITAS REAL — gabungan beberapa jenis kejadian =====
+    $activities = collect();
+
+    // Pesanan yang sudah selesai
+    Order::where('status', 'selesai')->latest('updated_at')->take(5)->get()->each(function ($o) use (&$activities) {
+        $activities->push([
+            'icon'  => '📦', 'color' => '#22c55e',
+            'text'  => "Pesanan {$o->nomor_pesanan} selesai",
+            'time'  => $o->updated_at,
+        ]);
+    });
+
+    // Pesanan baru masuk
+    Order::latest()->take(5)->get()->each(function ($o) use (&$activities) {
+        $activities->push([
+            'icon'  => '📦', 'color' => '#3b82f6',
+            'text'  => "Pesanan baru masuk {$o->nomor_pesanan}",
+            'time'  => $o->created_at,
+        ]);
+    });
+
+    // Pembeli baru daftar
+    User::where('role', 'pembeli')->latest()->take(5)->get()->each(function ($u) use (&$activities) {
+        $activities->push([
+            'icon'  => '👥', 'color' => '#3b82f6',
+            'text'  => "Pembeli baru: {$u->name}",
+            'time'  => $u->created_at,
+        ]);
+    });
+
+    // Stok produk menipis
+    Product::where('stok', '>', 0)->where('stok', '<', 8)->get()->each(function ($p) use (&$activities) {
+        $activities->push([
+            'icon'  => '⚠️', 'color' => '#f59e0b',
+            'text'  => "Stok {$p->nama} menipis ({$p->stok} pcs)",
+            'time'  => $p->updated_at,
+        ]);
+    });
+
+    // Ulasan baru dari pembeli
+    \App\Models\Review::with('user')->latest()->take(5)->get()->each(function ($r) use (&$activities) {
+        $activities->push([
+            'icon'  => '⭐', 'color' => '#f59e0b',
+            'text'  => "Ulasan baru dari " . ($r->user->name ?? '-') . " ({$r->rating}★)",
+            'time'  => $r->created_at,
+        ]);
+    });
+
+    $aktivitas = $activities
+        ->sortByDesc('time')
+        ->take(8)
+        ->map(fn($a) => [
+            'icon'  => $a['icon'],
+            'text'  => $a['text'],
+            'color' => $a['color'],
+            'time'  => $a['time']->diffForHumans(),
+        ])
+        ->values();
+
+    // ===== PENJUALAN BRAND REAL — berdasarkan qty terjual asli =====
+    $penjualanBrandRaw = \App\Models\OrderItem::join('products', 'products.id', '=', 'order_items.product_id')
+        ->selectRaw('products.brand, SUM(order_items.qty) as total_terjual')
+        ->groupBy('products.brand')
+        ->orderByDesc('total_terjual')
+        ->get();
+
+    $totalTerjualSemua = $penjualanBrandRaw->sum('total_terjual') ?: 1;
+    $penjualanBrand = $penjualanBrandRaw->map(fn($b) => [
+        'brand'   => $b->brand,
+        'terjual' => $b->total_terjual,
+        'persen'  => round(($b->total_terjual / $totalTerjualSemua) * 100),
+    ])->values();
+
+    return Inertia::render('Admin/DashboardAdmin', [
+            'admin'          => Auth::user(),
+            'stats'          => $stats,
+            'pesananTerbaru' => $pesananTerbaru,
+            'produkTerlaris' => $produkTerlaris,
+            'aktivitas'      => $aktivitas,
+            'penjualanBrand' => $penjualanBrand,
+            'kurirList'      => [
+            'jne'=>'JNE','jnt'=>'J&T Express','sicepat'=>'SiCepat',
+            'anteraja'=>'AnterAja','pos'=>'Pos Indonesia','tiki'=>'TIKI',
+            'ninja'=>'Ninja Express','lion'=>'Lion Parcel',
+            'idexpress'=>'ID Express','sap'=>'SAP Express',
+        ],
+    ]);
+}
 
     // ===== PRODUK =====
     public function produk()
