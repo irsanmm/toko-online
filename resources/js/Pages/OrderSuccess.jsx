@@ -149,8 +149,9 @@ export default function OrderSuccess({ nomorPesanan }) {
                     <div
                         style={{
                             display: "flex",
-                            alignItems: "center",
+                            alignItems: "flex-start", // Diubah ke flex-start agar teks panjang tidak menarik posisi ikon ke bawah
                             justifyContent: "space-between",
+                            width: "100%",
                         }}
                     >
                         {steps.map((s, i) => (
@@ -160,28 +161,36 @@ export default function OrderSuccess({ nomorPesanan }) {
                                     display: "flex",
                                     flexDirection: "column",
                                     alignItems: "center",
-                                    gap: ".35rem",
+                                    gap: ".5rem",
                                     flex: 1,
+                                    position: "relative",
                                 }}
                             >
+                                {/* Bagian Ikon dan Garis Penghubung */}
                                 <div
                                     style={{
                                         display: "flex",
                                         alignItems: "center",
+                                        justifyContent: "center",
                                         width: "100%",
+                                        position: "relative",
                                     }}
                                 >
-                                    {i > 0 && (
-                                        <div
-                                            style={{
-                                                flex: 1,
-                                                height: 2,
-                                                background: steps[i - 1].done
-                                                    ? "#22c55e"
-                                                    : "#f0f0f0",
-                                            }}
-                                        />
-                                    )}
+                                    {/* Garis Kiri */}
+                                    <div
+                                        style={{
+                                            flex: 1,
+                                            height: 2,
+                                            background:
+                                                i === 0
+                                                    ? "transparent" // Hilangkan garis paling kiri di step pertama
+                                                    : steps[i - 1].done
+                                                      ? "#22c55e"
+                                                      : "#f0f0f0",
+                                        }}
+                                    />
+
+                                    {/* Lingkaran Status / Ikon */}
                                     <div
                                         style={{
                                             width: 36,
@@ -196,28 +205,36 @@ export default function OrderSuccess({ nomorPesanan }) {
                                             alignItems: "center",
                                             justifyContent: "center",
                                             fontSize: "1rem",
+                                            zIndex: 1, // Memastikan ikon berada di atas garis pembungkus
                                         }}
                                     >
                                         {s.done ? "✓" : s.icon}
                                     </div>
-                                    {i < steps.length - 1 && (
-                                        <div
-                                            style={{
-                                                flex: 1,
-                                                height: 2,
-                                                background: s.done
-                                                    ? "#22c55e"
-                                                    : "#f0f0f0",
-                                            }}
-                                        />
-                                    )}
+
+                                    {/* Garis Kanan */}
+                                    <div
+                                        style={{
+                                            flex: 1,
+                                            height: 2,
+                                            background:
+                                                i === steps.length - 1
+                                                    ? "transparent" // Hilangkan garis paling kanan di step terakhir
+                                                    : s.done
+                                                      ? "#22c55e"
+                                                      : "#f0f0f0",
+                                        }}
+                                    />
                                 </div>
+
+                                {/* Label Teks di Bawah Ikon */}
                                 <div
                                     style={{
                                         fontSize: ".62rem",
                                         fontWeight: s.done ? 700 : 400,
                                         color: s.done ? "#166534" : "#aaa",
                                         textAlign: "center",
+                                        maxWidth: "80px", // Membatasi lebar teks agar rapi saat ganti baris
+                                        lineHeight: "1.2",
                                     }}
                                 >
                                     {s.label}
