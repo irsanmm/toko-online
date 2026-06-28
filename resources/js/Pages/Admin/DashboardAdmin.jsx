@@ -8,6 +8,8 @@ export default function DashboardAdmin({
     stats,
     pesananTerbaru,
     produkTerlaris,
+    aktivitas,
+    penjualanBrand,
     kurirList,
 }) {
     const [filterStatus, setFilterStatus] = useState("Semua");
@@ -23,6 +25,13 @@ export default function DashboardAdmin({
         Dikirim: { bg: "#e0f2fe", color: "#0369a1" },
         Selesai: { bg: "#dcfce7", color: "#166534" },
         Batal: { bg: "#fee2e2", color: "#991b1b" },
+    };
+
+    const brandColor = {
+        VANS: "#3b82f6",
+        NIKE: "#22c55e",
+        ADIDAS: "#f59e0b",
+        CONVERSE: "#8b5cf6",
     };
 
     const statusList = ["Semua", "Pending", "Diproses", "Dikirim", "Selesai"];
@@ -52,52 +61,6 @@ export default function DashboardAdmin({
         });
     };
 
-    const aktivitas = [
-        {
-            icon: "📦",
-            text: "Pesanan #AS001 selesai",
-            time: "2 mnt",
-            color: "#22c55e",
-        },
-        {
-            icon: "👥",
-            text: "Pembeli baru: Siti Rahayu",
-            time: "15 mnt",
-            color: "#3b82f6",
-        },
-        {
-            icon: "💰",
-            text: "Pembayaran #AS003 dikonfirmasi",
-            time: "1 jam",
-            color: "#8b5cf6",
-        },
-        {
-            icon: "⚠️",
-            text: "Stok Adidas menipis (5 pcs)",
-            time: "2 jam",
-            color: "#f59e0b",
-        },
-        {
-            icon: "📦",
-            text: "Pesanan baru masuk #AS006",
-            time: "3 jam",
-            color: "#3b82f6",
-        },
-        {
-            icon: "⭐",
-            text: "Ulasan baru dari Ahmad (5★)",
-            time: "5 jam",
-            color: "#f59e0b",
-        },
-    ];
-
-    const penjualanBrand = [
-        { brand: "VANS", persen: 42, color: "#3b82f6" },
-        { brand: "NIKE", persen: 28, color: "#22c55e" },
-        { brand: "ADIDAS", persen: 20, color: "#f59e0b" },
-        { brand: "CONVERSE", persen: 10, color: "#8b5cf6" },
-    ];
-
     const modalStyle = {
         position: "fixed",
         inset: 0,
@@ -109,7 +72,6 @@ export default function DashboardAdmin({
         padding: "1rem",
     };
 
-    // Render tombol aksi pintar sesuai status
     const renderAksiUtama = (p) => {
         if (p.status === "Pending") {
             return (
@@ -172,7 +134,7 @@ export default function DashboardAdmin({
                 </button>
             );
         }
-        return null; // Selesai / Batal — tidak ada aksi utama
+        return null;
     };
 
     return (
@@ -333,135 +295,150 @@ export default function DashboardAdmin({
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredPesanan.map((p, i) => (
-                                    <tr
-                                        key={i}
-                                        style={{
-                                            opacity:
-                                                loadingId === p.id ? 0.6 : 1,
-                                        }}
-                                    >
+                                {filteredPesanan.length === 0 ? (
+                                    <tr>
                                         <td
+                                            colSpan={6}
                                             style={{
-                                                fontWeight: 700,
-                                                color: "#3b82f6",
+                                                textAlign: "center",
+                                                color: "#aaa",
+                                                padding: "1.5rem",
                                             }}
                                         >
-                                            {p.id}
-                                        </td>
-                                        <td>{p.pembeli}</td>
-                                        <td
-                                            style={{
-                                                color: "#555",
-                                                maxWidth: 120,
-                                                overflow: "hidden",
-                                                textOverflow: "ellipsis",
-                                                whiteSpace: "nowrap",
-                                            }}
-                                        >
-                                            {p.produk}
-                                        </td>
-                                        <td style={{ fontWeight: 700 }}>
-                                            {formatHarga(p.total)}
-                                        </td>
-                                        <td>
-                                            <span
-                                                className="badge"
-                                                style={{
-                                                    background:
-                                                        statusStyle[p.status]
-                                                            ?.bg || "#f0f0f0",
-                                                    color:
-                                                        statusStyle[p.status]
-                                                            ?.color || "#555",
-                                                }}
-                                            >
-                                                {p.status}
-                                            </span>
-                                            {p.has_resi && (
-                                                <div
-                                                    style={{
-                                                        fontSize: ".62rem",
-                                                        color: "#888",
-                                                        marginTop: "2px",
-                                                    }}
-                                                >
-                                                    {p.kurir?.toUpperCase()} ·{" "}
-                                                    {p.nomor_resi}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td>
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    gap: "4px",
-                                                    alignItems: "center",
-                                                    flexWrap: "wrap",
-                                                }}
-                                            >
-                                                {/* Tombol aksi utama (pintar sesuai status) */}
-                                                {renderAksiUtama(p)}
-
-                                                {/* Dropdown manual — opsi cadangan, untuk ubah ke Batal dll */}
-                                                <select
-                                                    value={p.status}
-                                                    onChange={(e) =>
-                                                        handleUpdateStatus(
-                                                            p.id,
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    disabled={
-                                                        loadingId === p.id
-                                                    }
-                                                    title="Ubah status manual"
-                                                    style={{
-                                                        padding: "2px 4px",
-                                                        border: "1px solid #e5e7eb",
-                                                        borderRadius: 5,
-                                                        fontSize: ".65rem",
-                                                        cursor: "pointer",
-                                                        background: "#fff",
-                                                        color: "#aaa",
-                                                    }}
-                                                >
-                                                    {[
-                                                        "Pending",
-                                                        "Diproses",
-                                                        "Dikirim",
-                                                        "Selesai",
-                                                        "Batal",
-                                                    ].map((s) => (
-                                                        <option key={s}>
-                                                            {s}
-                                                        </option>
-                                                    ))}
-                                                </select>
-
-                                                {/* Hapus */}
-                                                <button
-                                                    onClick={() =>
-                                                        setHapusPesanan(p)
-                                                    }
-                                                    style={{
-                                                        padding: "2px 7px",
-                                                        border: "none",
-                                                        borderRadius: 5,
-                                                        background: "#fee2e2",
-                                                        color: "#991b1b",
-                                                        fontSize: ".7rem",
-                                                        cursor: "pointer",
-                                                        fontWeight: 700,
-                                                    }}
-                                                    title="Hapus pesanan"
-                                                >
-                                                    🗑
-                                                </button>
-                                            </div>
+                                            Belum ada pesanan
                                         </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    filteredPesanan.map((p, i) => (
+                                        <tr
+                                            key={i}
+                                            style={{
+                                                opacity:
+                                                    loadingId === p.id
+                                                        ? 0.6
+                                                        : 1,
+                                            }}
+                                        >
+                                            <td
+                                                style={{
+                                                    fontWeight: 700,
+                                                    color: "#3b82f6",
+                                                }}
+                                            >
+                                                {p.id}
+                                            </td>
+                                            <td>{p.pembeli}</td>
+                                            <td
+                                                style={{
+                                                    color: "#555",
+                                                    maxWidth: 120,
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {p.produk}
+                                            </td>
+                                            <td style={{ fontWeight: 700 }}>
+                                                {formatHarga(p.total)}
+                                            </td>
+                                            <td>
+                                                <span
+                                                    className="badge"
+                                                    style={{
+                                                        background:
+                                                            statusStyle[
+                                                                p.status
+                                                            ]?.bg || "#f0f0f0",
+                                                        color:
+                                                            statusStyle[
+                                                                p.status
+                                                            ]?.color || "#555",
+                                                    }}
+                                                >
+                                                    {p.status}
+                                                </span>
+                                                {p.has_resi && (
+                                                    <div
+                                                        style={{
+                                                            fontSize: ".62rem",
+                                                            color: "#888",
+                                                            marginTop: "2px",
+                                                        }}
+                                                    >
+                                                        {p.kurir?.toUpperCase()}{" "}
+                                                        · {p.nomor_resi}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        gap: "4px",
+                                                        alignItems: "center",
+                                                        flexWrap: "wrap",
+                                                    }}
+                                                >
+                                                    {renderAksiUtama(p)}
+                                                    <select
+                                                        value={p.status}
+                                                        onChange={(e) =>
+                                                            handleUpdateStatus(
+                                                                p.id,
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            loadingId === p.id
+                                                        }
+                                                        title="Ubah status manual"
+                                                        style={{
+                                                            padding: "2px 4px",
+                                                            border: "1px solid #e5e7eb",
+                                                            borderRadius: 5,
+                                                            fontSize: ".65rem",
+                                                            cursor: "pointer",
+                                                            background: "#fff",
+                                                            color: "#aaa",
+                                                        }}
+                                                    >
+                                                        {[
+                                                            "Pending",
+                                                            "Diproses",
+                                                            "Dikirim",
+                                                            "Selesai",
+                                                            "Batal",
+                                                        ].map((s) => (
+                                                            <option key={s}>
+                                                                {s}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <button
+                                                        onClick={() =>
+                                                            setHapusPesanan(p)
+                                                        }
+                                                        style={{
+                                                            padding: "2px 7px",
+                                                            border: "none",
+                                                            borderRadius: 5,
+                                                            background:
+                                                                "#fee2e2",
+                                                            color: "#991b1b",
+                                                            fontSize: ".7rem",
+                                                            cursor: "pointer",
+                                                            fontWeight: 700,
+                                                        }}
+                                                        title="Hapus pesanan"
+                                                    >
+                                                        🗑
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -485,7 +462,7 @@ export default function DashboardAdmin({
                     </div>
                 </div>
 
-                {/* Aktivitas */}
+                {/* Aktivitas — REAL dari database */}
                 <div className="card" style={{ overflow: "hidden" }}>
                     <div className="card-header">
                         <span style={{ fontWeight: 700, fontSize: ".9rem" }}>
@@ -493,59 +470,72 @@ export default function DashboardAdmin({
                         </span>
                     </div>
                     <div style={{ padding: ".25rem 0" }}>
-                        {aktivitas.map((a, i) => (
+                        {!aktivitas || aktivitas.length === 0 ? (
                             <div
-                                key={i}
                                 style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: ".65rem",
-                                    padding: ".6rem 1.1rem",
-                                    borderBottom:
-                                        i < aktivitas.length - 1
-                                            ? "1px solid #f9fafb"
-                                            : "none",
+                                    padding: "1.5rem",
+                                    textAlign: "center",
+                                    color: "#aaa",
+                                    fontSize: ".8rem",
                                 }}
                             >
+                                Belum ada aktivitas
+                            </div>
+                        ) : (
+                            aktivitas.map((a, i) => (
                                 <div
+                                    key={i}
                                     style={{
-                                        width: 32,
-                                        height: 32,
-                                        borderRadius: 7,
-                                        background: a.color + "22",
                                         display: "flex",
                                         alignItems: "center",
-                                        justifyContent: "center",
-                                        fontSize: ".9rem",
-                                        flexShrink: 0,
+                                        gap: ".65rem",
+                                        padding: ".6rem 1.1rem",
+                                        borderBottom:
+                                            i < aktivitas.length - 1
+                                                ? "1px solid #f9fafb"
+                                                : "none",
                                     }}
                                 >
-                                    {a.icon}
-                                </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
                                     <div
                                         style={{
-                                            fontSize: ".75rem",
-                                            fontWeight: 500,
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: 7,
+                                            background: a.color + "22",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            fontSize: ".9rem",
+                                            flexShrink: 0,
                                         }}
                                     >
-                                        {a.text}
+                                        {a.icon}
                                     </div>
-                                    <div
-                                        style={{
-                                            fontSize: ".65rem",
-                                            color: "#aaa",
-                                            marginTop: "2px",
-                                        }}
-                                    >
-                                        {a.time} lalu
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div
+                                            style={{
+                                                fontSize: ".75rem",
+                                                fontWeight: 500,
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {a.text}
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontSize: ".65rem",
+                                                color: "#aaa",
+                                                marginTop: "2px",
+                                            }}
+                                        >
+                                            {a.time}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
             </div>
@@ -592,50 +582,65 @@ export default function DashboardAdmin({
                                 </tr>
                             </thead>
                             <tbody>
-                                {produkTerlaris.map((p, i) => (
-                                    <tr key={i}>
-                                        <td style={{ fontWeight: 600 }}>
-                                            {p.nama}
-                                        </td>
-                                        <td>
-                                            <span
-                                                style={{
-                                                    fontSize: ".68rem",
-                                                    fontWeight: 700,
-                                                    color: "#f59e0b",
-                                                }}
-                                            >
-                                                {p.brand}
-                                            </span>
-                                        </td>
-                                        <td style={{ fontWeight: 700 }}>
-                                            {p.terjual} pcs
-                                        </td>
-                                        <td>{p.stok} pcs</td>
-                                        <td style={{ fontWeight: 700 }}>
-                                            {formatHarga(p.harga)}
-                                        </td>
-                                        <td>
-                                            <span
-                                                className="badge"
-                                                style={{
-                                                    background:
-                                                        p.stok < 8
-                                                            ? "#fee2e2"
-                                                            : "#dcfce7",
-                                                    color:
-                                                        p.stok < 8
-                                                            ? "#991b1b"
-                                                            : "#166534",
-                                                }}
-                                            >
-                                                {p.stok < 8
-                                                    ? "⚠ Menipis"
-                                                    : "✓ Aman"}
-                                            </span>
+                                {produkTerlaris.length === 0 ? (
+                                    <tr>
+                                        <td
+                                            colSpan={6}
+                                            style={{
+                                                textAlign: "center",
+                                                color: "#aaa",
+                                                padding: "1.5rem",
+                                            }}
+                                        >
+                                            Belum ada data
                                         </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    produkTerlaris.map((p, i) => (
+                                        <tr key={i}>
+                                            <td style={{ fontWeight: 600 }}>
+                                                {p.nama}
+                                            </td>
+                                            <td>
+                                                <span
+                                                    style={{
+                                                        fontSize: ".68rem",
+                                                        fontWeight: 700,
+                                                        color: "#f59e0b",
+                                                    }}
+                                                >
+                                                    {p.brand}
+                                                </span>
+                                            </td>
+                                            <td style={{ fontWeight: 700 }}>
+                                                {p.terjual} pcs
+                                            </td>
+                                            <td>{p.stok} pcs</td>
+                                            <td style={{ fontWeight: 700 }}>
+                                                {formatHarga(p.harga)}
+                                            </td>
+                                            <td>
+                                                <span
+                                                    className="badge"
+                                                    style={{
+                                                        background:
+                                                            p.stok < 8
+                                                                ? "#fee2e2"
+                                                                : "#dcfce7",
+                                                        color:
+                                                            p.stok < 8
+                                                                ? "#991b1b"
+                                                                : "#166534",
+                                                    }}
+                                                >
+                                                    {p.stok < 8
+                                                        ? "⚠ Menipis"
+                                                        : "✓ Aman"}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -653,76 +658,93 @@ export default function DashboardAdmin({
                         📊 Penjualan Brand
                     </div>
 
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: ".75rem",
-                            marginBottom: "1.25rem",
-                        }}
-                    >
-                        {penjualanBrand.map((b, i) => (
-                            <div key={i}>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        marginBottom: ".25rem",
-                                    }}
-                                >
+                    {!penjualanBrand || penjualanBrand.length === 0 ? (
+                        <p
+                            style={{
+                                fontSize: ".8rem",
+                                color: "#aaa",
+                                textAlign: "center",
+                                padding: "1rem 0",
+                            }}
+                        >
+                            Belum ada penjualan tercatat
+                        </p>
+                    ) : (
+                        <div
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: ".75rem",
+                                marginBottom: "1.25rem",
+                            }}
+                        >
+                            {penjualanBrand.map((b, i) => (
+                                <div key={i}>
                                     <div
                                         style={{
                                             display: "flex",
-                                            alignItems: "center",
-                                            gap: ".4rem",
+                                            justifyContent: "space-between",
+                                            marginBottom: ".25rem",
                                         }}
                                     >
                                         <div
                                             style={{
-                                                width: 7,
-                                                height: 7,
-                                                borderRadius: "50%",
-                                                background: b.color,
-                                            }}
-                                        />
-                                        <span
-                                            style={{
-                                                fontSize: ".75rem",
-                                                fontWeight: 600,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: ".4rem",
                                             }}
                                         >
-                                            {b.brand}
+                                            <div
+                                                style={{
+                                                    width: 7,
+                                                    height: 7,
+                                                    borderRadius: "50%",
+                                                    background:
+                                                        brandColor[b.brand] ||
+                                                        "#888",
+                                                }}
+                                            />
+                                            <span
+                                                style={{
+                                                    fontSize: ".75rem",
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                {b.brand}
+                                            </span>
+                                        </div>
+                                        <span
+                                            style={{
+                                                fontSize: ".72rem",
+                                                color: "#888",
+                                            }}
+                                        >
+                                            {b.terjual} pcs · {b.persen}%
                                         </span>
                                     </div>
-                                    <span
-                                        style={{
-                                            fontSize: ".72rem",
-                                            color: "#888",
-                                        }}
-                                    >
-                                        {b.persen}%
-                                    </span>
-                                </div>
-                                <div
-                                    style={{
-                                        height: 6,
-                                        background: "#f0f0f0",
-                                        borderRadius: 999,
-                                        overflow: "hidden",
-                                    }}
-                                >
                                     <div
                                         style={{
-                                            height: "100%",
-                                            width: `${b.persen}%`,
-                                            background: b.color,
+                                            height: 6,
+                                            background: "#f0f0f0",
                                             borderRadius: 999,
+                                            overflow: "hidden",
                                         }}
-                                    />
+                                    >
+                                        <div
+                                            style={{
+                                                height: "100%",
+                                                width: `${b.persen}%`,
+                                                background:
+                                                    brandColor[b.brand] ||
+                                                    "#888",
+                                                borderRadius: 999,
+                                            }}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
 
                     <div
                         style={{
