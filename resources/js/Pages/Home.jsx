@@ -59,7 +59,7 @@ export default function Home({ featured }) {
                         marginBottom: "1rem",
                     }}
                 >
-                    NEW ARRIVALS 2025
+                    NEW ARRIVALS 2026
                 </p>
                 <h1
                     style={{
