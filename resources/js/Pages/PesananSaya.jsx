@@ -874,7 +874,7 @@ export default function PesananSaya({
                                     cursor: "pointer",
                                 }}
                             >
-                                Ya, Sudah Diterima ✅
+                                Ya, Sudah Diterima
                             </button>
                         </div>
                     </div>
