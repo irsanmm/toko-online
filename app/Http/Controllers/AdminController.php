@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\User;
+use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -52,18 +53,18 @@ class AdminController extends Controller
 
         $stats = [
             ['label'=>'Total Pesanan','value'=>Order::count(),
-             'icon'=>'📦','color'=>'#dbeafe','accent'=>'#3b82f6',
-             'sub'=>Order::whereDate('created_at',today())->count().' hari ini','trend'=>'up'],
-            ['label'=>'Pendapatan','value'=>'Rp '.number_format(Order::where('status','selesai')->sum('total_harga'),0,',','.'),
-             'icon'=>'💰','color'=>'#dcfce7','accent'=>'#22c55e',
-             'sub'=>'Total terkonfirmasi','trend'=>'up'],
-            ['label'=>'Produk Aktif','value'=>Product::where('status','aktif')->count(),
-             'icon'=>'👟','color'=>'#fef9c3','accent'=>'#f59e0b',
-             'sub'=>Product::where('stok','<',8)->count().' stok menipis','trend'=>''],
-            ['label'=>'Total Pembeli','value'=>User::where('role','pembeli')->count(),
-             'icon'=>'👥','color'=>'#fce7f3','accent'=>'#ec4899',
-             'sub'=>User::where('role','pembeli')->whereMonth('created_at',now()->month)->count().' bulan ini','trend'=>'up'],
-        ];
+                'icon'=>'📦','color'=>'#dbeafe','accent'=>'#3b82f6',
+                'sub'=>Order::whereDate('created_at',today())->count().' hari ini','trend'=>'up'],
+                ['label'=>'Pendapatan','value'=>'Rp '.number_format(Order::where('status','selesai')->sum('total_harga'),0,',','.'),
+                'icon'=>'💰','color'=>'#dcfce7','accent'=>'#22c55e',
+                'sub'=>'Total terkonfirmasi','trend'=>'up'],
+                ['label'=>'Produk Aktif','value'=>Product::where('status','aktif')->count(),
+                'icon'=>'👟','color'=>'#fef9c3','accent'=>'#f59e0b',
+                'sub'=>Product::where('stok','<',8)->count().' stok menipis','trend'=>''],
+                ['label'=>'Total Pembeli','value'=>User::where('role','pembeli')->count(),
+                'icon'=>'👥','color'=>'#fce7f3','accent'=>'#ec4899',
+                'sub'=>User::where('role','pembeli')->whereMonth('created_at',now()->month)->count().' bulan ini','trend'=>'up'],
+            ];
 
         $pesananTerbaru = Order::with(['user','items'])->latest()->take(10)->get()
             ->map(fn($o) => [
@@ -221,6 +222,48 @@ class AdminController extends Controller
     
         return back()->with('success', 'Pembeli berhasil dihapus.');
     }
+
+    public function ulasan()
+    {
+        if ($r = $this->checkAdmin()) return $r;
+    
+        $ulasan = \App\Models\Review::with(['user', 'product', 'order'])
+            ->latest()
+            ->get()
+            ->map(fn($r) => [
+                'id'       => $r->id,
+                'nama'     => $r->user->name ?? '-',
+                'email'    => $r->user->email ?? '-',
+                'produk'   => $r->product->nama ?? '-',
+                'gambar'   => $r->product->gambar ?? null,
+                'nomor_pesanan' => $r->order->nomor_pesanan ?? '-',
+                'rating'   => $r->rating,
+                'komentar' => $r->komentar,
+                'tanggal'  => $r->created_at->format('d M Y'),
+            ]);
+    
+        $totalUlasan   = $ulasan->count();
+        $ratingRata    = $totalUlasan > 0 ? round($ulasan->avg('rating'), 1) : 0;
+        $distribusi    = [];
+        for ($i = 5; $i >= 1; $i--) {
+            $distribusi[$i] = $ulasan->where('rating', $i)->count();
+        }
+    
+        return Inertia::render('Admin/UlasanAdmin', [
+            'admin'       => Auth::user(),
+            'ulasan'      => $ulasan,
+            'totalUlasan' => $totalUlasan,
+            'ratingRata'  => $ratingRata,
+            'distribusi'  => $distribusi,
+        ]);
+    }
+
+public function deleteUlasan($id)
+{
+    if ($r = $this->checkAdmin()) return $r;
+    \App\Models\Review::findOrFail($id)->delete();
+    return back()->with('success', 'Ulasan berhasil dihapus.');
+}
 
     // ===== PESANAN =====
     public function pesanan()
