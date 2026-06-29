@@ -11,7 +11,7 @@ export default function Home({ featured }) {
         {
             icon: "🚚",
             judul: "Gratis Ongkir",
-            sub: "Pembelian di atas Rp 500.000",
+            sub: "Pembelian di atas Rp 800.000",
         },
         {
             icon: "✅",
