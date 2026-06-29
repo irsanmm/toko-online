@@ -94,7 +94,7 @@ export default function Home({ featured }) {
                     }}
                 >
                     {isLogin
-                        ? "Ada koleksi baru yang menunggumu hari ini. Yuk, cek sekarang!"
+                        ? "Ada koleksi baru yang menunggumu hari ini. Yuk, cek sekarang"
                         : "Koleksi premium footwear terbaru hadir untuk melengkapi setiap langkah kamu."}
                 </p>
 
