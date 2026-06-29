@@ -17,6 +17,7 @@ class Order extends Model
         'nama_penerima',
         'telepon_penerima',
         'metode_bayar',
+        'bukti_transfer',
         'total_harga',
         'status',
         'kurir',
