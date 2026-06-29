@@ -11,6 +11,11 @@ const statusStyle = {
     Batal: { bg: "#fee2e2", color: "#991b1b" },
 };
 
+const imgSrc = (g) => {
+    if (!g) return null;
+    return g.startsWith("/") ? g : `/storage/${g}`;
+};
+
 export default function PesananAdmin({ admin, pesanan, kurirList }) {
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState("Semua");
@@ -18,6 +23,7 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
     const [modalResi, setModalResi] = useState(null);
     const [loadingId, setLoadingId] = useState(null);
     const [hapusPesanan, setHapusPesanan] = useState(null);
+    const [lihatBukti, setLihatBukti] = useState(null);
 
     const fmtHarga = (n) => "Rp " + Number(n).toLocaleString("id-ID");
     const statusList = [
@@ -60,7 +66,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
         });
     };
 
-    // Tombol aksi pintar sesuai status — tidak perlu buka dropdown untuk alur normal
     const renderAksiUtama = (p) => {
         if (p.status === "Pending") {
             return (
@@ -256,6 +261,7 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                     "Produk",
                                     "Total",
                                     "Metode",
+                                    "Bukti",
                                     "Tanggal",
                                     "Status",
                                     "Aksi",
@@ -316,6 +322,44 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                     <td style={{ fontSize: ".75rem" }}>
                                         {p.metode}
                                     </td>
+                                    <td>
+                                        {p.metode === "cod" ? (
+                                            <span
+                                                style={{
+                                                    fontSize: ".68rem",
+                                                    color: "#aaa",
+                                                }}
+                                            >
+                                                —
+                                            </span>
+                                        ) : p.bukti_transfer ? (
+                                            <button
+                                                onClick={() => setLihatBukti(p)}
+                                                style={{
+                                                    background: "#eff6ff",
+                                                    color: "#1d4ed8",
+                                                    border: "1px solid #bfdbfe",
+                                                    borderRadius: 6,
+                                                    padding: "3px 8px",
+                                                    fontSize: ".68rem",
+                                                    fontWeight: 700,
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                🖼 Lihat
+                                            </button>
+                                        ) : (
+                                            <span
+                                                style={{
+                                                    fontSize: ".68rem",
+                                                    color: "#dc2626",
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                Belum ada
+                                            </span>
+                                        )}
+                                    </td>
                                     <td
                                         style={{
                                             fontSize: ".72rem",
@@ -360,17 +404,13 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                 alignItems: "center",
                                             }}
                                         >
-                                            {/* Tombol aksi utama pintar */}
                                             {renderAksiUtama(p)}
-
                                             <button
                                                 className="btn btn-outline btn-sm"
                                                 onClick={() => setDetail(p)}
                                             >
                                                 Detail
                                             </button>
-
-                                            {/* Dropdown manual — opsi cadangan */}
                                             <select
                                                 value={p.status}
                                                 onChange={(e) =>
@@ -403,7 +443,6 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                                     </option>
                                                 ))}
                                             </select>
-
                                             <button
                                                 className="btn btn-sm"
                                                 style={{
@@ -536,26 +575,52 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                             ))}
                         </div>
 
-                        <div style={{ display: "flex", gap: ".6rem" }}>
-                            {detail.status === "Pending" && (
-                                <button
-                                    className="btn"
+                        {/* Bukti transfer di dalam detail */}
+                        {detail.metode !== "cod" && (
+                            <div style={{ marginBottom: "1.25rem" }}>
+                                <div
                                     style={{
-                                        flex: 1,
-                                        background: "#3b82f6",
-                                        color: "#fff",
-                                    }}
-                                    onClick={() => {
-                                        handleUpdateStatus(
-                                            detail.id,
-                                            "Diproses",
-                                        );
-                                        setDetail(null);
+                                        fontSize: ".75rem",
+                                        color: "#888",
+                                        fontWeight: 600,
+                                        marginBottom: ".5rem",
                                     }}
                                 >
-                                    ✅ Proses Sekarang
-                                </button>
-                            )}
+                                    Bukti Pembayaran
+                                </div>
+                                {detail.bukti_transfer ? (
+                                    <img
+                                        src={imgSrc(detail.bukti_transfer)}
+                                        alt="Bukti Transfer"
+                                        onClick={() => setLihatBukti(detail)}
+                                        style={{
+                                            width: "100%",
+                                            maxHeight: 220,
+                                            objectFit: "contain",
+                                            borderRadius: 9,
+                                            border: "1px solid #f0f0f0",
+                                            background: "#f9fafb",
+                                            cursor: "pointer",
+                                        }}
+                                    />
+                                ) : (
+                                    <div
+                                        style={{
+                                            padding: ".75rem",
+                                            background: "#fee2e2",
+                                            borderRadius: 9,
+                                            fontSize: ".8rem",
+                                            color: "#991b1b",
+                                            textAlign: "center",
+                                        }}
+                                    >
+                                        ⚠️ Bukti transfer belum diupload pembeli
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div style={{ display: "flex", gap: ".6rem" }}>
                             {(detail.status === "Diproses" ||
                                 detail.status === "Dikirim") && (
                                 <button
@@ -587,6 +652,87 @@ export default function PesananAdmin({ admin, pesanan, kurirList }) {
                                 Tutup
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Lihat Bukti Transfer (fullscreen) */}
+            {lihatBukti && (
+                <div
+                    style={{ ...modalStyle, zIndex: 1000 }}
+                    onClick={() => setLihatBukti(null)}
+                >
+                    <div
+                        style={{
+                            background: "#fff",
+                            borderRadius: 12,
+                            padding: "1.25rem",
+                            maxWidth: 520,
+                            width: "100%",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "1rem",
+                            }}
+                        >
+                            <div>
+                                <h3
+                                    style={{
+                                        fontWeight: 800,
+                                        fontSize: ".95rem",
+                                    }}
+                                >
+                                    Bukti Pembayaran
+                                </h3>
+                                <p
+                                    style={{
+                                        fontSize: ".72rem",
+                                        color: "#888",
+                                    }}
+                                >
+                                    {lihatBukti.id} · {lihatBukti.pembeli} ·{" "}
+                                    {lihatBukti.metode}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setLihatBukti(null)}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    fontSize: "1.2rem",
+                                    cursor: "pointer",
+                                    color: "#888",
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        {lihatBukti.bukti_transfer ? (
+                            <img
+                                src={imgSrc(lihatBukti.bukti_transfer)}
+                                alt="Bukti Transfer"
+                                style={{
+                                    width: "100%",
+                                    borderRadius: 9,
+                                    border: "1px solid #f0f0f0",
+                                }}
+                            />
+                        ) : (
+                            <p
+                                style={{
+                                    textAlign: "center",
+                                    color: "#aaa",
+                                    padding: "2rem",
+                                }}
+                            >
+                                Tidak ada bukti
+                            </p>
+                        )}
                     </div>
                 </div>
             )}

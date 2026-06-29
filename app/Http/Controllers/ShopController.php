@@ -58,56 +58,62 @@ class ShopController extends Controller
     }
 
     public function checkout()
+{
+    if (!Auth::check()) return redirect()->route('pembeli.login');
+ 
+    $user = Auth::user();
+ 
+    $alamatPembeli = [
+        'nama'    => $user->name,
+        'telepon' => $user->telepon ?? '',
+        'alamat'  => $user->alamat ?? '',
+    ];
+ 
+    return Inertia::render('Checkout', [
+        'alamatPembeli' => $alamatPembeli,
+    ]);
+}
+ 
+public function prosesCheckout(Request $request)
     {
         if (!Auth::check()) return redirect()->route('pembeli.login');
-
-        $user = Auth::user();
-
-        // Kirim data alamat pembeli untuk auto-fill
-        $alamatPembeli = [
-            'nama'     => $user->name,
-            'telepon'  => $user->telepon ?? '',
-            'alamat'   => $user->alamat  ?? '',
-            'kota'     => '',
-            'provinsi' => '',
-        ];
-
-        return Inertia::render('Checkout', [
-            'alamatPembeli' => $alamatPembeli,
-        ]);
-    }
-
-    public function prosesCheckout(Request $request)
-    {
-        if (!Auth::check()) return redirect()->route('pembeli.login');
-
+    
+        $isCod = $request->metode_bayar === 'cod';
+    
         $request->validate([
-            'nama'         => 'required|string',
-            'telepon'      => 'required|string',
-            'alamat'       => 'required|string',
-            'kota'         => 'required|string',
-            'metode_bayar' => 'required|string',
-            'items'        => 'required|array|min:1',
-            'total'        => 'required|numeric',
+            'nama'           => 'required|string',
+            'telepon'        => 'required|string',
+            'alamat'         => 'required|string',
+            'metode_bayar'   => 'required|string',
+            'items'          => 'required|array|min:1',
+            'total'          => 'required|numeric',
+            'bukti_transfer' => $isCod ? 'nullable|image|max:2048' : 'required|image|max:2048',
+        ], [
+            'bukti_transfer.required' => 'Bukti transfer wajib diupload untuk metode pembayaran ini.',
+            'bukti_transfer.image'    => 'File harus berupa gambar (JPG/PNG).',
         ]);
-
-        // Buat nomor pesanan unik
-        $nomorPesanan = Order::generateNomor();
-
-        // Buat pesanan
+    
+        // Upload bukti transfer kalau ada
+        $buktiPath = null;
+        if ($request->hasFile('bukti_transfer')) {
+            $buktiPath = $request->file('bukti_transfer')->store('bukti_transfer', 'public');
+        }
+    
+        // Buat pesanan — kota/provinsi tidak lagi diminta dari pembeli, disimpan kosong
         $order = Order::create([
-            'nomor_pesanan'     => $nomorPesanan,
+            'nomor_pesanan'     => Order::generateNomor(),
             'user_id'           => Auth::id(),
             'nama_penerima'     => $request->nama,
             'telepon_penerima'  => $request->telepon,
             'alamat_pengiriman' => $request->alamat,
-            'kota'              => $request->kota,
-            'provinsi'          => $request->provinsi ?? '',
+            'kota'              => '',
+            'provinsi'          => '',
             'metode_bayar'      => $request->metode_bayar,
+            'bukti_transfer'    => $buktiPath,
             'total_harga'       => $request->total,
             'status'            => 'pending',
         ]);
-
+    
         // Simpan item & kurangi stok
         foreach ($request->items as $item) {
             $product = Product::find($item['id']);
@@ -121,12 +127,10 @@ class ShopController extends Controller
                     'harga'       => $product->harga,
                     'qty'         => $item['qty'],
                 ]);
-                // Kurangi stok
                 $product->decrement('stok', $item['qty']);
             }
         }
-
-        // Redirect ke halaman Order Success dengan nomor pesanan
+    
         return Inertia::render('OrderSuccess', [
             'nomorPesanan' => $order->nomor_pesanan,
         ]);
