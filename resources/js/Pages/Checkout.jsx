@@ -7,14 +7,14 @@ export default function Checkout({ alamatPembeli }) {
     const pembeli = auth?.pembeli;
     const [cart, setCart] = useState([]);
     const [step, setStep] = useState(1);
+    const [buktiPreview, setBuktiPreview] = useState(null);
 
     const { data, setData, post, processing, errors } = useForm({
         nama: pembeli?.name || "",
         telepon: pembeli?.telepon || "",
         alamat: alamatPembeli?.alamat || pembeli?.alamat || "",
-        kota: alamatPembeli?.kota || "",
-        provinsi: alamatPembeli?.provinsi || "",
         metode_bayar: "",
+        bukti_transfer: null,
         items: [],
         total: 0,
     });
@@ -33,13 +33,41 @@ export default function Checkout({ alamatPembeli }) {
     const total = cart.reduce((s, i) => s + i.harga * i.qty, 0);
 
     const metodePembayaran = [
-        { id: "transfer_bca", label: "Transfer BCA", icon: "🏦" },
-        { id: "transfer_mandiri", label: "Transfer Mandiri", icon: "🏦" },
-        { id: "gopay", label: "GoPay", icon: "💚" },
-        { id: "ovo", label: "OVO", icon: "💜" },
-        { id: "dana", label: "DANA", icon: "💙" },
-        { id: "cod", label: "Bayar di Tempat (COD)", icon: "💵" },
+        {
+            id: "transfer_bca",
+            label: "Transfer BCA",
+            icon: "🏦",
+            butuhBukti: true,
+        },
+        {
+            id: "transfer_mandiri",
+            label: "Transfer Mandiri",
+            icon: "🏦",
+            butuhBukti: true,
+        },
+        { id: "gopay", label: "GoPay", icon: "💚", butuhBukti: true },
+        { id: "ovo", label: "OVO", icon: "💜", butuhBukti: true },
+        { id: "dana", label: "DANA", icon: "💙", butuhBukti: true },
+        {
+            id: "cod",
+            label: "Bayar di Tempat (COD)",
+            icon: "💵",
+            butuhBukti: false,
+        },
     ];
+
+    const metodeTerpilih = metodePembayaran.find(
+        (m) => m.id === data.metode_bayar,
+    );
+    const butuhBukti = metodeTerpilih?.butuhBukti ?? false;
+
+    const handleBuktiChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setData("bukti_transfer", file);
+            setBuktiPreview(URL.createObjectURL(file));
+        }
+    };
 
     const handleOrder = (e) => {
         e.preventDefault();
@@ -89,6 +117,11 @@ export default function Checkout({ alamatPembeli }) {
             </Layout>
         );
     }
+
+    const submitDisabled =
+        !data.metode_bayar ||
+        processing ||
+        (butuhBukti && !data.bukti_transfer);
 
     return (
         <Layout>
@@ -197,7 +230,7 @@ export default function Checkout({ alamatPembeli }) {
                     >
                         {/* FORM KIRI */}
                         <div>
-                            {/* STEP 1: Alamat */}
+                            {/* STEP 1: Alamat — tanpa kota/provinsi */}
                             {step === 1 && (
                                 <div
                                     style={{
@@ -217,7 +250,6 @@ export default function Checkout({ alamatPembeli }) {
                                         📍 Alamat Pengiriman
                                     </h2>
 
-                                    {/* Banner auto-fill */}
                                     {(pembeli?.alamat ||
                                         alamatPembeli?.alamat) && (
                                         <div
@@ -259,7 +291,7 @@ export default function Checkout({ alamatPembeli }) {
                                         },
                                         {
                                             key: "telepon",
-                                            label: "No. Telepon",
+                                            label: "No. WhatsApp",
                                             placeholder: "08xxxxxxxxxx",
                                             type: "text",
                                         },
@@ -316,7 +348,7 @@ export default function Checkout({ alamatPembeli }) {
                                         </div>
                                     ))}
 
-                                    <div style={{ marginBottom: "1rem" }}>
+                                    <div style={{ marginBottom: "1.5rem" }}>
                                         <label
                                             style={{
                                                 display: "block",
@@ -325,7 +357,7 @@ export default function Checkout({ alamatPembeli }) {
                                                 marginBottom: ".35rem",
                                             }}
                                         >
-                                            Alamat Lengkap
+                                            Alamat
                                         </label>
                                         <textarea
                                             value={data.alamat}
@@ -335,7 +367,7 @@ export default function Checkout({ alamatPembeli }) {
                                                     e.target.value,
                                                 )
                                             }
-                                            placeholder="Jl. Nama Jalan No. X, RT/RW, Kelurahan"
+                                            placeholder="Jl. Nama Jalan No. X, RT/RW, Kelurahan, Kecamatan, Kota, Provinsi"
                                             rows={3}
                                             style={{
                                                 ...inputStyle(errors.alamat),
@@ -361,61 +393,13 @@ export default function Checkout({ alamatPembeli }) {
                                                 {errors.alamat}
                                             </p>
                                         )}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            display: "grid",
-                                            gridTemplateColumns: "1fr 1fr",
-                                            gap: ".75rem",
-                                            marginBottom: "1.5rem",
-                                        }}
-                                    >
-                                        {[
-                                            {
-                                                key: "kota",
-                                                label: "Kota",
-                                                placeholder: "Nama kota",
-                                            },
-                                            {
-                                                key: "provinsi",
-                                                label: "Provinsi",
-                                                placeholder: "Nama provinsi",
-                                            },
-                                        ].map((f) => (
-                                            <div key={f.key}>
-                                                <label
-                                                    style={{
-                                                        display: "block",
-                                                        fontWeight: 600,
-                                                        fontSize: ".85rem",
-                                                        marginBottom: ".35rem",
-                                                    }}
-                                                >
-                                                    {f.label}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={data[f.key]}
-                                                    onChange={(e) =>
-                                                        setData(
-                                                            f.key,
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    placeholder={f.placeholder}
-                                                    style={inputStyle(false)}
-                                                    onFocus={(e) =>
-                                                        (e.target.style.borderColor =
-                                                            "#f59e0b")
-                                                    }
-                                                    onBlur={(e) =>
-                                                        (e.target.style.borderColor =
-                                                            "#e5e7eb")
-                                                    }
-                                                />
-                                            </div>
-                                        ))}
+                                        <p
+                                            style={{
+                                                fontSize: ".72rem",
+                                                color: "#aaa",
+                                                marginTop: ".4rem",
+                                            }}
+                                        ></p>
                                     </div>
 
                                     <button
@@ -438,7 +422,7 @@ export default function Checkout({ alamatPembeli }) {
                                 </div>
                             )}
 
-                            {/* STEP 2: Metode Bayar */}
+                            {/* STEP 2: Metode Bayar + Upload Bukti */}
                             {step === 2 && (
                                 <div
                                     style={{
@@ -493,12 +477,17 @@ export default function Checkout({ alamatPembeli }) {
                                                         data.metode_bayar ===
                                                         m.id
                                                     }
-                                                    onChange={() =>
+                                                    onChange={() => {
                                                         setData(
                                                             "metode_bayar",
                                                             m.id,
-                                                        )
-                                                    }
+                                                        );
+                                                        setData(
+                                                            "bukti_transfer",
+                                                            null,
+                                                        );
+                                                        setBuktiPreview(null);
+                                                    }}
                                                     style={{ display: "none" }}
                                                 />
                                                 <span
@@ -531,6 +520,149 @@ export default function Checkout({ alamatPembeli }) {
                                         ))}
                                     </div>
 
+                                    {/* Upload Bukti Transfer — hanya muncul kalau bukan COD */}
+                                    {butuhBukti && (
+                                        <div
+                                            style={{
+                                                background: "#fffbeb",
+                                                border: "1.5px solid #fde68a",
+                                                borderRadius: 12,
+                                                padding: "1.1rem",
+                                                marginBottom: "1.5rem",
+                                            }}
+                                        >
+                                            <label
+                                                style={{
+                                                    display: "block",
+                                                    fontWeight: 700,
+                                                    fontSize: ".875rem",
+                                                    marginBottom: ".5rem",
+                                                }}
+                                            >
+                                                📤 Upload Bukti Transfer *
+                                            </label>
+                                            <p
+                                                style={{
+                                                    fontSize: ".78rem",
+                                                    color: "#92700a",
+                                                    marginBottom: ".75rem",
+                                                }}
+                                            >
+                                                Lakukan pembayaran ke
+                                                rekening/akun kami, lalu upload
+                                                screenshot atau foto buktinya di
+                                                sini.
+                                            </p>
+
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    gap: "1rem",
+                                                    alignItems: "center",
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        width: 80,
+                                                        height: 80,
+                                                        borderRadius: 10,
+                                                        background: "#fff",
+                                                        border: "1.5px dashed #fde68a",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent:
+                                                            "center",
+                                                        overflow: "hidden",
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    {buktiPreview ? (
+                                                        <img
+                                                            src={buktiPreview}
+                                                            alt="Preview"
+                                                            style={{
+                                                                width: "100%",
+                                                                height: "100%",
+                                                                objectFit:
+                                                                    "cover",
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <span
+                                                            style={{
+                                                                fontSize:
+                                                                    "1.5rem",
+                                                                color: "#fbbf24",
+                                                            }}
+                                                        >
+                                                            📷
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={
+                                                            handleBuktiChange
+                                                        }
+                                                        style={{
+                                                            width: "100%",
+                                                            padding: ".5rem",
+                                                            border: "1.5px solid #fde68a",
+                                                            borderRadius: 8,
+                                                            fontSize: ".8rem",
+                                                            background: "#fff",
+                                                        }}
+                                                    />
+                                                    <p
+                                                        style={{
+                                                            fontSize: ".7rem",
+                                                            color: "#92700a",
+                                                            marginTop: ".4rem",
+                                                        }}
+                                                    >
+                                                        Format JPG/PNG, maksimal
+                                                        2MB.
+                                                    </p>
+                                                    {errors.bukti_transfer && (
+                                                        <p
+                                                            style={{
+                                                                color: "#dc2626",
+                                                                fontSize:
+                                                                    ".75rem",
+                                                                marginTop:
+                                                                    ".25rem",
+                                                            }}
+                                                        >
+                                                            {
+                                                                errors.bukti_transfer
+                                                            }
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {data.metode_bayar === "cod" && (
+                                        <div
+                                            style={{
+                                                background: "#f0fdf4",
+                                                border: "1.5px solid #bbf7d0",
+                                                borderRadius: 12,
+                                                padding: ".9rem 1.1rem",
+                                                marginBottom: "1.5rem",
+                                                fontSize: ".8rem",
+                                                color: "#166534",
+                                            }}
+                                        >
+                                            💵 Bayar tunai langsung ke kurir
+                                            saat paket diterima. Tidak perlu
+                                            upload bukti pembayaran.
+                                        </div>
+                                    )}
+
                                     <div
                                         style={{
                                             display: "flex",
@@ -551,35 +683,31 @@ export default function Checkout({ alamatPembeli }) {
                                                 cursor: "pointer",
                                             }}
                                         >
-                                            Kembali
+                                            ← Kembali
                                         </button>
 
                                         <button
                                             type="submit"
-                                            disabled={
-                                                !data.metode_bayar || processing
-                                            }
+                                            disabled={submitDisabled}
                                             style={{
                                                 flex: 2,
                                                 padding: ".8rem",
-                                                background: !data.metode_bayar
+                                                background: submitDisabled
                                                     ? "#d1d5db"
                                                     : "#f59e0b",
                                                 color: "#111",
                                                 border: "none",
                                                 borderRadius: 10,
                                                 fontWeight: 700,
-                                                cursor:
-                                                    !data.metode_bayar ||
-                                                    processing
-                                                        ? "not-allowed"
-                                                        : "pointer",
+                                                cursor: submitDisabled
+                                                    ? "not-allowed"
+                                                    : "pointer",
                                                 fontSize: ".95rem",
                                             }}
                                         >
                                             {processing
                                                 ? "⏳ Memproses..."
-                                                : "Buat Pesanan"}
+                                                : "🎉 Konfirmasi Pesanan"}
                                         </button>
                                     </div>
                                 </div>
@@ -717,7 +845,6 @@ export default function Checkout({ alamatPembeli }) {
                                 </div>
                             </div>
 
-                            {/* Info alamat pengiriman di step 2 */}
                             {step === 2 && data.alamat && (
                                 <div
                                     style={{
@@ -749,7 +876,6 @@ export default function Checkout({ alamatPembeli }) {
                                         }}
                                     >
                                         {data.alamat}
-                                        {data.kota ? ", " + data.kota : ""}
                                     </div>
                                 </div>
                             )}
