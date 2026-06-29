@@ -352,6 +352,7 @@ public function deleteUlasan($id)
                 'produk'     => $o->items->first()?->nama_produk ?? '-',
                 'total'      => $o->total_harga,
                 'metode'     => $o->metode_bayar,
+                'bukti_transfer' => $o->bukti_transfer,
                 'status'     => ucfirst($o->status),
                 'tanggal'    => $o->created_at->format('d M Y'),
                 'alamat'     => $o->alamat_pengiriman,
